@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0c1110">
+  <title>CE · Telégrafo — estación de práctica CW</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b100f;
+      --panel: #121a18;
+      --panel-2: #172220;
+      --bezel: #243230;
+      --line: #26332f;
+      --cream: #e7dcc4;
+      --muted: #8a978f;
+      --amber: #ff9d2f;
+      --amber-hot: #ffc878;
+      --glow: rgba(255, 157, 47, .5);
+      --rx: #69c79a;
+      /* fósforo verde, uso muy puntual */
+      --rx-glow: rgba(105, 199, 154, .45);
+      --dash: #76c9cf;
+      --bad: #e0796a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    html,
+    body {
+      height: 100%
+    }
+
+    body {
+      background:
+        radial-gradient(1100px 520px at 50% -12%, #15201d 0%, var(--bg) 62%),
+        var(--bg);
+      color: var(--cream);
+      font-family: 'Saira Condensed', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100%;
+      padding: 0 0 40px;
+      overflow-x: hidden;
+      touch-action: manipulation;
+      /* sin zoom por doble toque */
+      -webkit-user-select: none;
+      user-select: none;
+      /* sin selección accidental */
+      -webkit-touch-callout: none;
+      /* sin menú copiar en iOS */
+      -webkit-tap-highlight-color: transparent;
+      /* sin destello gris al tocar */
+    }
+
+    input,
+    textarea {
+      -webkit-user-select: text;
+      user-select: text
+    }
+
+    button,
+    .tab,
+    .opt,
+    .cell,
+    .lamp-ring,
+    .key-btn,
+    .switch,
+    .seg-toggle {
+      touch-action: manipulation
+    }
+
+    .mono {
+      font-family: 'Space Mono', monospace
+    }
+
+    .shell {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 0 14px
+    }
+
+    /* ---------- Barra de estado (pantalla del equipo) ---------- */
+    .status {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: linear-gradient(180deg, #0d1413, #0b100f);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(6px);
+    }
+
+    .status-in {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 9px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand {
+      font-weight: 700;
+      letter-spacing: .14em;
+      font-size: 15px;
+      text-transform: uppercase;
+      white-space: nowrap
+    }
+
+    .brand b {
+      color: var(--amber)
+    }
+
+    .readout {
+      margin-left: auto;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .05em;
+    }
+
+    .readout .v {
+      color: var(--cream)
+    }
+
+    .readout .rank {
+      color: var(--rx)
+    }
+
+    .tx-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #3a4a45;
+      transition: .06s
+    }
+
+    body.keying .tx-dot {
+      background: var(--amber);
+      box-shadow: 0 0 10px 2px var(--glow)
+    }
+
+    /* ---------- Navegación (botones de equipo) ---------- */
+    nav {
+      margin: 12px auto 0;
+      max-width: 780px;
+      padding: 0 10px
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 4px
+    }
+
+    .tabs::-webkit-scrollbar {
+      display: none
+    }
+
+    .tab {
+      flex: 0 0 auto;
+      font-family: 'Saira Condensed', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      cursor: pointer;
+      color: var(--muted);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 13px;
+      transition: .15s;
+      white-space: nowrap;
+    }
+
+    .tab:hover {
+      color: var(--cream);
+      border-color: var(--bezel)
+    }
+
+    .tab[aria-selected="true"] {
+      color: var(--amber);
+      border-color: var(--amber);
+      background: #1a1408
+    }
+
+    /* ---------- Pantallas ---------- */
+    .screen {
+      display: none;
+      padding-top: 20px;
+      animation: fade .25s ease
+    }
+
+    .screen.active {
+      display: block
+    }
+
+    @keyframes fade {
+      from {
+        opacity: 0;
+        transform: translateY(6px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    h2.title {
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      font-size: 26px;
+      line-height: 1
+    }
+
+    .lead {
+      color: var(--muted);
+      font-weight: 400;
+      font-size: 15px;
+      margin-top: 6px;
+      max-width: 60ch
+    }
+
+    .eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .34em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px
+    }
+
+    .card+.card {
+      margin-top: 14px
+    }
+
+    /* ---------- Llave + medidor (signature) ---------- */
+    .keyer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px
+    }
+
+    .lamp-ring {
+      position: relative;
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      background: radial-gradient(circle at 50% 36%, #1e2c29, #0e1413 72%);
+      border: 1px solid var(--bezel);
+      box-shadow: inset 0 2px 14px rgba(0, 0, 0, .6);
+      transition: transform .07s ease;
+    }
+
+    .lamp {
+      width: 82px;
+      height: 82px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 40%, #3a2f1c, #161d1b 72%);
+      box-shadow: inset 0 0 16px rgba(0, 0, 0, .7);
+      transition: .04s linear;
+    }
+
+    body.keying .keyer-lamp {
+      background: radial-gradient(circle at 50% 40%, var(--amber-hot), var(--amber) 55%, #a8650f 100%);
+      box-shadow: 0 0 30px 6px var(--glow), inset 0 0 12px rgba(255, 255, 255, .4);
+    }
+
+    body.keying.asdash .keyer-lamp {
+      background: radial-gradient(circle at 50% 40%, #d2f2f4, var(--dash) 55%, #2c777c 100%);
+      box-shadow: 0 0 30px 6px rgba(118, 201, 207, .55), inset 0 0 12px rgba(255, 255, 255, .4);
+    }
+
+    body.keying .lamp-ring {
+      transform: scale(.985)
+    }
+
+    .meter {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      height: 26px
+    }
+
+    .seg {
+      width: 13px;
+      height: 22px;
+      border-radius: 3px;
+      background: #1c2623;
+      border: 1px solid #283531;
+      transition: background .03s, box-shadow .03s
+    }
+
+    .seg.on {
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--glow)
+    }
+
+    .seg.dash {
+      background: var(--dash);
+      box-shadow: 0 0 8px rgba(118, 201, 207, .5)
+    }
+
+    .meter-label {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: .18em;
+      min-width: 74px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .meter-label.dot {
+      color: var(--amber)
+    }
+
+    .meter-label.dash {
+      color: var(--dash)
+    }
+
+    .live-code {
+      font-family: 'Space Mono', monospace;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      min-height: 32px
+    }
+
+    .live-code .d {
+      color: var(--amber)
+    }
+
+    .live-code .h {
+      color: var(--dash)
+    }
+
+    .live-code .ph {
+      color: var(--muted);
+      font-size: 14px
+    }
+
+    .key-btn {
+      width: 100%;
+      max-width: 360px;
+      padding: 16px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      background: linear-gradient(180deg, #1f2d2a, #15201e);
+      color: var(--cream);
+      border: 1px solid var(--bezel);
+      border-radius: 11px;
+    }
+
+    body.keying .key-btn {
+      border-color: var(--amber);
+      color: var(--amber-hot)
+    }
+
+    /* ---------- Cinta / log ---------- */
+    .tape {
+      background: repeating-linear-gradient(90deg, #efe7d4, #efe7d4 38px, #e7ddc7 38px, #e7ddc7 40px);
+      color: #1a1410;
+      border-radius: 10px;
+      min-height: 58px;
+      padding: 13px 15px;
+      margin-top: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: .16em;
+      word-break: break-word;
+      line-height: 1.4;
+      border: 1px solid #c9bda2;
+    }
+
+    .tape .cursor {
+      display: inline-block;
+      width: 10px;
+      color: #b07a1d;
+      animation: blink 1s steps(2, start) infinite
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0
+      }
+    }
+
+    .row {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 12px
+    }
+
+    button.btn {
+      font-family: 'Saira Condensed', sans-serif;
+      font-weight: 500;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      cursor: pointer;
+      background: var(--panel-2);
+      color: var(--cream);
+      border: 1px solid var(--line);
+      padding: 10px 15px;
+      border-radius: 9px;
+      transition: .15s;
+    }
+
+    button.btn:hover {
+      border-color: var(--amber);
+      color: var(--amber)
+    }
+
+    button.btn:active {
+      transform: translateY(1px)
+    }
+
+    button.btn.primary {
+      background: #1a1408;
+      border-color: var(--amber);
+      color: var(--amber-hot)
+    }
+
+    button.btn:focus-visible,
+    .tab:focus-visible,
+    .lamp-ring:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 2px
+    }
+
+    .field {
+      width: 100%;
+      background: var(--bg);
+      color: var(--cream);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 12px 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 16px;
+      letter-spacing: .05em;
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    .field:focus {
+      border-color: var(--amber)
+    }
+
+    .field::placeholder {
+      color: var(--muted)
+    }
+
+    /* ---------- Vista morse de palabra ---------- */
+    .word-morse {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 17px;
+      color: var(--amber);
+      min-height: 24px
+    }
+
+    .word-morse .grp {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center
+    }
+
+    .word-morse .grp .lt {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .1em
+    }
+
+    .word-morse .grp.bad .sym,
+    .word-morse .grp.bad .lt {
+      color: var(--bad)
+    }
+
+    /* ---------- Abecedario ---------- */
+    .chart {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+      gap: 7px;
+      margin-top: 12px
+    }
+
+    .cell {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 5px;
+      text-align: center;
+      cursor: pointer;
+      transition: .12s;
+      position: relative
+    }
+
+    .cell:hover {
+      border-color: var(--amber)
+    }
+
+    .cell .ch {
+      font-size: 21px;
+      font-weight: 700;
+      line-height: 1
+    }
+
+    .cell .mc {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      margin-top: 4px;
+      color: var(--muted);
+      letter-spacing: .04em
+    }
+
+    .cell.lit {
+      border-color: var(--amber);
+      background: #241c0d;
+      box-shadow: 0 0 14px var(--glow)
+    }
+
+    .cell.lit .ch {
+      color: var(--amber-hot)
+    }
+
+    .cell.lit .mc {
+      color: var(--amber)
+    }
+
+    .cell .acc {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      bottom: 4px;
+      height: 3px;
+      border-radius: 2px;
+      background: #283531;
+      overflow: hidden
+    }
+
+    .cell .acc i {
+      display: block;
+      height: 100%;
+      background: var(--rx)
+    }
+
+    /* ---------- Historia ---------- */
+    .hero {
+      text-align: center;
+      padding: 30px 6px 10px
+    }
+
+    .hero .eyebrow {
+      margin-bottom: 14px
+    }
+
+    .hero h1 {
+      font-weight: 700;
+      font-size: clamp(40px, 11vw, 72px);
+      line-height: .86;
+      letter-spacing: .01em;
+      text-transform: uppercase
+    }
+
+    .hero h1 .k {
+      color: var(--amber)
+    }
+
+    .keysvg {
+      margin: 22px auto 18px;
+      display: block;
+      max-width: 230px;
+      width: 70%
+    }
+
+    .story {
+      max-width: 46ch;
+      margin: 0 auto;
+      color: var(--cream);
+      font-size: 17px;
+      line-height: 1.6;
+      font-weight: 400
+    }
+
+    .story .dim {
+      color: var(--muted)
+    }
+
+    .sign {
+      margin-top: 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: .16em
+    }
+
+    /* ---------- bloques de datos ---------- */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 6px
+    }
+
+    .stat {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      padding: 13px 14px
+    }
+
+    .stat .n {
+      font-family: 'Space Mono', monospace;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--amber);
+      line-height: 1
+    }
+
+    .stat .l {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-top: 4px
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 5px 12px
+    }
+
+    .pill b {
+      color: var(--rx)
+    }
+
+    .prompt-big {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      text-align: center;
+      margin: 12px 0
+    }
+
+    .prompt-big .lt {
+      font-size: 64px;
+      color: var(--cream);
+      line-height: 1
+    }
+
+    .prompt-big .code {
+      font-size: 34px;
+      color: var(--amber);
+      letter-spacing: .16em
+    }
+
+    .feedback {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 500;
+      min-height: 26px;
+      letter-spacing: .04em
+    }
+
+    .feedback.ok {
+      color: var(--rx)
+    }
+
+    .feedback.no {
+      color: var(--bad)
+    }
+
+    .opts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+      gap: 8px;
+      margin-top: 12px
+    }
+
+    .opt {
+      font-family: 'Space Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      padding: 14px 4px;
+      text-align: center;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: .1s
+    }
+
+    .opt:hover {
+      border-color: var(--amber);
+      color: var(--amber)
+    }
+
+    .opt.ok {
+      border-color: var(--rx);
+      background: #0f211a;
+      color: var(--rx)
+    }
+
+    .opt.no {
+      border-color: var(--bad);
+      background: #211210;
+      color: var(--bad)
+    }
+
+    .seg-toggle {
+      display: inline-flex;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 3px
+    }
+
+    .seg-toggle button {
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-family: 'Saira Condensed', sans-serif;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      padding: 7px 13px;
+      border-radius: 7px;
+      cursor: pointer
+    }
+
+    .seg-toggle button[aria-pressed="true"] {
+      background: #1a1408;
+      color: var(--amber)
+    }
+
+    .ach {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel-2);
+      margin-top: 8px
+    }
+
+    .ach.locked {
+      opacity: .4
+    }
+
+    .ach .badge {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      background: #1a1408;
+      border: 1px solid var(--bezel);
+      color: var(--amber);
+      flex: 0 0 auto
+    }
+
+    .ach .t {
+      font-weight: 500
+    }
+
+    .ach .d {
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--amber);
+      cursor: pointer
+    }
+
+    .tone-btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px
+    }
+
+    .tone-btns .btn[aria-pressed="true"] {
+      border-color: var(--amber);
+      color: var(--amber);
+      background: #1a1408
+    }
+
+    label.opt-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--line)
+    }
+
+    label.opt-line:last-child {
+      border-bottom: none
+    }
+
+    .switch {
+      position: relative;
+      width: 46px;
+      height: 26px;
+      flex: 0 0 auto
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      cursor: pointer
+    }
+
+    .switch .track {
+      position: absolute;
+      inset: 0;
+      background: #283531;
+      border-radius: 20px;
+      transition: .15s;
+      pointer-events: none
+    }
+
+    .switch .knob {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #7d8b85;
+      transition: .15s;
+      pointer-events: none
+    }
+
+    .switch input:checked+.track {
+      background: #3a2a10
+    }
+
+    .switch input:checked+.track+.knob {
+      transform: translateX(20px);
+      background: var(--amber)
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      transform: translateX(-50%) translateY(20px);
+      background: #1a1408;
+      border: 1px solid var(--amber);
+      color: var(--amber-hot);
+      padding: 11px 18px;
+      border-radius: 11px;
+      font-size: 14px;
+      letter-spacing: .04em;
+      opacity: 0;
+      transition: .25s;
+      z-index: 80;
+      display: flex;
+      gap: 9px;
+      align-items: center
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0)
+    }
+
+    .note {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
+      line-height: 1.5
+    }
+
+    .kbd {
+      font-family: 'Space Mono', monospace;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-size: 11px;
+      color: var(--cream)
+    }
+
+    .hr {
+      height: 1px;
+      background: var(--line);
+      margin: 16px 0
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      * {
+        animation: none !important;
+        transition: none !important
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ===== Barra de estado ===== -->
+  <div class="status">
+    <div class="status-in">
+      <div class="brand"><b>·—·</b> TELÉGRAFO</div>
+      <div class="readout">
+        <span>PPM <span class="v" id="rdWpm">13</span></span>
+        <span>TONO <span class="v" id="rdTone">600</span>Hz</span>
+        <span class="rank" id="rdRank">SWL</span>
+        <span class="tx-dot" id="txDot" title="indicador TX"></span>
+      </div>
+    </div>
+  </div>
+
+  <nav>
+    <div class="tabs" role="tablist" id="tabs">
+      <button class="tab" role="tab" data-screen="inicio" aria-selected="true">Historia</button>
+      <button class="tab" role="tab" data-screen="telegrafo">Telégrafo</button>
+      <button class="tab" role="tab" data-screen="aprender">Aprender</button>
+      <button class="tab" role="tab" data-screen="entrenar">Entrenar</button>
+      <button class="tab" role="tab" data-screen="recuperar">Recuperar</button>
+      <button class="tab" role="tab" data-screen="radio">Radio</button>
+      <button class="tab" role="tab" data-screen="progreso">Progreso</button>
+      <button class="tab" role="tab" data-screen="ajustes">Ajustes</button>
+    </div>
+  </nav>
+
+  <div class="shell">
+
+    <!-- ===== HISTORIA ===== -->
+    <section class="screen active" id="inicio" role="tabpanel">
+      <div class="hero">
+        <div class="eyebrow">estación de práctica · cw</div>
+        <h1>El <span class="k">·—·</span><br>Telégrafo</h1>
+        <svg class="keysvg" viewBox="0 0 260 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="40" y="86" width="180" height="14" rx="3" fill="#1c2623" stroke="#2c3a36" />
+          <rect x="150" y="74" width="20" height="16" rx="2" fill="#26332f" stroke="#3a4a45" />
+          <circle cx="92" cy="58" r="18" fill="#26332f" stroke="#3a4a45" />
+          <circle cx="92" cy="58" r="8" fill="#ff9d2f" opacity="0.85" />
+          <rect x="92" y="64" width="86" height="7" rx="3.5" fill="#3a4a45" transform="rotate(-7 92 64)" />
+          <rect x="166" y="40" width="9" height="34" rx="3" fill="#2c3a36" stroke="#3a4a45" />
+          <circle cx="92" cy="58" r="26" stroke="#ff9d2f" stroke-opacity="0.25" stroke-dasharray="2 5" />
+        </svg>
+        <p class="story">
+          Construí esto para recordar el código que aprendí de niño, mi padre me lo enseño, porque no enseñarlo a
+          otros.. <span class="dim">Él armó su propio pulsador para enseñarme. Esta es mi forma de volver a esa
+            mesa.</span>
+        </p>
+        <div class="sign">— K I D · D E · C E 3 W M J</div>
+        <div class="row" style="justify-content:center;margin-top:22px">
+          <button class="btn primary" data-go="telegrafo">Abrir la llave</button>
+          <button class="btn" data-go="aprender">Empezar a aprender</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== TELÉGRAFO (práctica libre) ===== -->
+    <section class="screen" id="telegrafo" role="tabpanel">
+      <h2 class="title">Llave abierta</h2>
+      <p class="lead">Mantén presionado: corto es punto, largo es raya. El medidor te muestra en vivo cuándo cruza a
+        raya. Suelta un momento y se traduce la letra.</p>
+
+      <div class="card">
+        <div class="keyer" data-keyer>
+          <div class="lamp-ring keyer-lamp-ring" tabindex="0" role="button" aria-label="emitir Morse">
+            <div class="lamp keyer-lamp"></div>
+          </div>
+          <div class="meter keyer-meter" aria-hidden="true"></div>
+          <div class="meter-label keyer-label">EN REPOSO</div>
+          <div class="live-code keyer-live"><span class="ph">listo para transmitir</span></div>
+          <button class="key-btn keyer-btn">▼ mantén aquí o pulsa ESPACIO ▼</button>
+        </div>
+        <div class="tape" id="tape"><span class="cursor">▌</span></div>
+        <div class="row">
+          <button class="btn" id="backBtn">⌫ borrar</button>
+          <button class="btn" id="clearBtn">limpiar</button>
+          <span class="pill" style="margin-left:auto">PPM <b id="kWpm">13</b></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">escribe y escucha</div>
+        <div class="row" style="margin-top:4px">
+          <input class="field" id="wordInput" placeholder="escribe una palabra: hola" autocomplete="off"
+            spellcheck="false" style="flex:1;min-width:0">
+          <button class="btn primary" id="playWord">▶ sonar</button>
+        </div>
+        <div class="word-morse" id="wordMorse"></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">abecedario · toca para oír</div>
+        <div class="chart" id="chart"></div>
+      </div>
+    </section>
+
+    <!-- ===== APRENDER (Koch) ===== -->
+    <section class="screen" id="aprender" role="tabpanel">
+      <h2 class="title">Aprender</h2>
+      <p class="lead">Método Koch: aprendes de oído, a velocidad real, sumando caracteres de a poco. No memorizas la
+        tabla — reconoces el ritmo.</p>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <span class="pill">NIVEL <b id="lvlNum">1</b></span>
+          <span class="pill">precisión nivel <b id="lvlAcc">—</b></span>
+        </div>
+        <div class="prompt-big" id="learnChars"
+          style="font-size:30px;color:var(--amber);letter-spacing:.18em;margin-top:14px"></div>
+        <div class="note" id="learnTip"></div>
+        <div class="hr"></div>
+        <div class="feedback" id="learnFb">Pulsa “escuchar” y elige la letra que oíste.</div>
+        <div class="prompt-big" id="learnReveal"></div>
+        <div class="opts" id="learnOpts"></div>
+        <div class="row" style="justify-content:center;margin-top:14px">
+          <button class="btn primary" id="learnPlay">▶ escuchar</button>
+          <button class="btn" id="learnRepeat">↻ repetir</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div>
+            <div class="eyebrow">progreso del nivel</div>
+            <div class="note" id="learnProg">Acierta el 90% de 12 intentos para desbloquear el siguiente nivel.</div>
+          </div>
+          <button class="btn" id="lvlReset">reiniciar nivel</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ENTRENAR ===== -->
+    <section class="screen" id="entrenar" role="tabpanel">
+      <h2 class="title">Entrenar</h2>
+      <p class="lead">Dos direcciones. En <b>Copia</b> escuchas y eliges la letra. En <b>Transmite</b> ves la letra y la
+        keyeas tú.</p>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div class="seg-toggle" id="trMode">
+            <button data-m="rx" aria-pressed="true">Copia (escuchar)</button>
+            <button data-m="tx" aria-pressed="false">Transmite (keyear)</button>
+          </div>
+          <span class="pill">racha <b id="trStreak">0</b></span>
+        </div>
+
+        <!-- RX -->
+        <div id="trRx" style="margin-top:14px">
+          <div class="feedback" id="trRxFb">Pulsa “escuchar” y elige la letra.</div>
+          <div class="prompt-big" id="trRxReveal"></div>
+          <div class="opts" id="trRxOpts"></div>
+          <div class="row" style="justify-content:center;margin-top:14px">
+            <button class="btn primary" id="trRxPlay">▶ escuchar</button>
+            <button class="btn" id="trRxRepeat">↻ repetir</button>
+          </div>
+        </div>
+
+        <!-- TX -->
+        <div id="trTx" style="display:none;margin-top:14px">
+          <div class="prompt-big"><span class="lt" id="trTxLetter">A</span>
+            <div class="code" id="trTxCode">·—</div>
+          </div>
+          <div class="keyer" data-keyer>
+            <div class="lamp-ring keyer-lamp-ring" tabindex="0" role="button" aria-label="emitir Morse">
+              <div class="lamp keyer-lamp"></div>
+            </div>
+            <div class="meter keyer-meter" aria-hidden="true"></div>
+            <div class="meter-label keyer-label">EN REPOSO</div>
+            <div class="live-code keyer-live"><span class="ph">keyea la letra de arriba</span></div>
+            <button class="key-btn keyer-btn">▼ mantén o ESPACIO ▼</button>
+          </div>
+          <div class="feedback" id="trTxFb" style="margin-top:8px"></div>
+          <div class="row" style="justify-content:center"><button class="btn" id="trTxSkip">saltar</button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="n" id="trAcc">—</div>
+            <div class="l">precisión sesión</div>
+          </div>
+          <div class="stat">
+            <div class="n" id="trReact">—</div>
+            <div class="l">reacción media</div>
+          </div>
+          <div class="stat">
+            <div class="n" id="trBest">0</div>
+            <div class="l">mejor racha</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== RECUPERAR MEMORIA ===== -->
+    <section class="screen" id="recuperar" role="tabpanel">
+      <h2 class="title">Recuperar memoria</h2>
+      <p class="lead">Para quien ya supo Morse. Repaso adaptativo: insiste en las letras que más te cuestan y sube la
+        velocidad a medida que respondes bien.</p>
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <span class="pill">velocidad adaptativa <b id="recWpm">13</b> PPM</span>
+          <span class="pill">racha <b id="recStreak">0</b></span>
+        </div>
+        <div class="feedback" id="recFb" style="margin-top:14px">Escucha y elige. Si fallas, esa letra volverá pronto.
+        </div>
+        <div class="prompt-big" id="recReveal"></div>
+        <div class="opts" id="recOpts"></div>
+        <div class="row" style="justify-content:center;margin-top:14px">
+          <button class="btn primary" id="recPlay">▶ escuchar</button>
+          <button class="btn" id="recRepeat">↻ repetir</button>
+        </div>
+        <div class="note">Las 3 letras más flojas ahora: <b id="recWeak" class="mono">—</b></div>
+      </div>
+    </section>
+
+    <!-- ===== RADIO (QSO real) ===== -->
+    <section class="screen" id="radio" role="tabpanel">
+      <h2 class="title">Radioaficionado</h2>
+      <p class="lead">Tráfico CW real: llamadas CQ, indicativos, QTH, RST y despedidas 73. Escucha la transmisión y
+        copia lo que entiendas.</p>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div class="seg-toggle" id="radioDiff">
+            <button data-w="9" aria-pressed="true">Lento</button>
+            <button data-w="14" aria-pressed="false">Medio</button>
+            <button data-w="20" aria-pressed="false">Rápido</button>
+          </div>
+          <button class="btn primary" id="radioNew">▶ nueva transmisión</button>
+        </div>
+        <div class="tape" id="radioTape" style="margin-top:14px"><span class="ph mono" style="color:#8a7a55">pulsa
+            “nueva transmisión”…</span></div>
+        <input class="field" id="radioCopy" placeholder="copia aquí lo que escuchaste…" autocomplete="off"
+          spellcheck="false" style="margin-top:12px">
+        <div class="row">
+          <button class="btn" id="radioReplay">↻ repetir</button>
+          <button class="btn" id="radioCheck">comprobar</button>
+          <button class="btn" id="radioReveal">revelar</button>
+        </div>
+        <div class="feedback" id="radioFb" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <div class="eyebrow">glosario de a bordo</div>
+        <div class="note">
+          <b>CQ</b> llamada general · <b>DE</b> “de parte de” · <b>K</b> cambio, adelante ·
+          <b>QTH</b> ubicación · <b>RST</b> reporte de señal (ej. 599) · <b>73</b> saludos cordiales ·
+          <b>AR</b> fin de mensaje · <b>CE3</b> prefijo de Chile.
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PROGRESO ===== -->
+    <section class="screen" id="progreso" role="tabpanel">
+      <h2 class="title">Progreso</h2>
+      <p class="lead">Tu hoja de operador: lo que dominas, lo que falta y hacia dónde vas.</p>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div>
+            <div class="eyebrow">rango de operador</div>
+            <div style="font-size:24px;font-weight:700" id="pgRank">Escucha (SWL)</div>
+          </div>
+          <span class="pill">XP <b id="pgXp">0</b></span>
+        </div>
+        <div class="stat-grid" style="margin-top:14px">
+          <div class="stat">
+            <div class="n" id="pgAcc">—</div>
+            <div class="l">precisión total</div>
+          </div>
+          <div class="stat">
+            <div class="n" id="pgBest">0</div>
+            <div class="l">mejor racha</div>
+          </div>
+          <div class="stat">
+            <div class="n" id="pgLevel">1</div>
+            <div class="l">nivel Koch</div>
+          </div>
+          <div class="stat">
+            <div class="n" id="pgQso">0</div>
+            <div class="l">QSO copiados</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="eyebrow">precisión por letra</div>
+        <div class="chart" id="heat"></div>
+        <div class="note">Verde lleno = dominada. Vacío = aún por practicar.</div>
+      </div>
+      <div class="card">
+        <div class="eyebrow">logros</div>
+        <div id="achList"></div>
+      </div>
+    </section>
+
+    <!-- ===== AJUSTES ===== -->
+    <section class="screen" id="ajustes" role="tabpanel">
+      <h2 class="title">Ajustes</h2>
+      <div class="card">
+        <div class="eyebrow">tono (sidetone)</div>
+        <div class="tone-btns" id="toneBtns">
+          <button class="btn" data-f="400">400 Hz</button>
+          <button class="btn" data-f="600">600 Hz</button>
+          <button class="btn" data-f="800">800 Hz</button>
+          <button class="btn" id="toneTest">probar ▶</button>
+        </div>
+        <div class="range-row">300 <input type="range" id="freq" min="300" max="1000" step="10" value="600"> 1000 Hz
+          <span class="v mono" id="freqVal" style="color:var(--cream)">600</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="eyebrow">velocidad</div>
+        <div class="range-row">5 <input type="range" id="wpm" min="5" max="25" step="1" value="13"> 25 PPM
+          <span class="v mono" id="wpmVal" style="color:var(--cream)">13</span>
+        </div>
+        <div class="range-row">silencio <input type="range" id="vol" min="0" max="40" step="2" value="25"> volumen</div>
+      </div>
+      <div class="card">
+        <label class="opt-line">Espaciado Farnsworth (recomendado para aprender)
+          <span class="switch"><input type="checkbox" id="farns" checked><span class="track"></span><span
+              class="knob"></span></span></label>
+        <label class="opt-line">Vibración (haptics) en móvil
+          <span class="switch"><input type="checkbox" id="vib" checked><span class="track"></span><span
+              class="knob"></span></span></label>
+      </div>
+      <div class="card">
+        <div class="eyebrow">datos</div>
+        <div class="note" id="storeNote"></div>
+        <div class="row"><button class="btn" id="resetAll">borrar progreso</button></div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    "use strict";
+    /* ============================================================
+       Datos Morse
+    ============================================================ */
+    const MORSE = {
+      A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..',
+      J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.',
+      S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..',
+      '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-',
+      '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.',
+      '.': '.-.-.-', ',': '--..--', '?': '..--..', '/': '-..-.', '=': '-...-', '+': '.-.-.'
+    };
+    const REVERSE = Object.fromEntries(Object.entries(MORSE).map(([k, v]) => [v, k]));
+    const fmt = c => c.replace(/\./g, '•').replace(/-/g, '—');
+
+    // Progresión Koch (honra tu nivel 1 = E,T)
+    const LEVELS = [
+      ['E', 'T'], ['A', 'N', 'I', 'M'], ['S', 'O'], ['R', 'H'], ['D', 'U', 'L'],
+      ['C', 'G', 'K'], ['W', 'B', 'P', 'F'], ['V', 'X', 'Y', 'Z', 'J', 'Q'],
+      ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], ['.', ',', '?', '/']
+    ];
+    function unlockedSet(levelIdx) {
+      const s = []; for (let i = 0; i <= levelIdx && i < LEVELS.length; i++) s.push(...LEVELS[i]); return s;
+    }
+    const TIPS = {
+      E: 'E es el destello más corto: un punto. •',
+      T: 'T es su opuesto: una raya. —',
+      A: 'A = E seguido de T: • —. La N es su espejo: — •.',
+      N: 'N = — •, el espejo de A.',
+      I: 'I es la E repetida: • •. La M es la T repetida: — —.',
+      M: 'M = — —, la T doble.',
+      S: 'S es tres puntos: • • •. La O es tres rayas: — — —.',
+      O: 'O = — — —. Piensa en algo grande y largo.',
+      R: 'R = • — •, punto-raya-punto, ritmo de vaivén.',
+      H: 'H = • • • •, cuatro puntos seguidos.',
+      D: 'D = — • •. La B la extiende: — • • •.',
+      U: 'U = • • —, sube al final.',
+      L: 'L = • — • •.',
+      C: 'C = — • — •, ritmo alterno.',
+      G: 'G = — — •.', K: 'K = — • —, simétrica.',
+      W: 'W = • — —, como una A que sigue.',
+      B: 'B = — • • •.', P: 'P = • — — •.', F: 'F = • • — •.',
+      V: 'V = • • • —, los tres puntos y un golpe (Beethoven).',
+      X: 'X = — • • —.', Y: 'Y = — • — —.', Z: 'Z = — — • •.',
+      J: 'J = • — — —.', Q: 'Q = — — • —.'
+    };
+
+    /* ============================================================
+       Almacenamiento (localStorage con respaldo en memoria)
+    ============================================================ */
+    const Store = (() => {
+      const KEY = 'telegrafo_v1'; let mem = {}, ok = true;
+      try { const r = localStorage.getItem(KEY); mem = r ? JSON.parse(r) : {}; } catch (e) { ok = false; }
+      function save() { if (!ok) return; try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) { } }
+      return { ok, get: (k, d) => (k in mem ? mem[k] : d), set: (k, v) => { mem[k] = v; save(); }, save };
+    })();
+    const DEF_SETTINGS = { freq: 600, wpm: 13, vol: 25, farns: true, vib: true };
+    const DEF_PROGRESS = {
+      level: 0, xp: 0, bestStreak: 0, totalCorrect: 0, totalAttempts: 0, qso: 0,
+      letter: {}, lvlAttempts: 0, lvlCorrect: 0, ach: []
+    };
+    let S = Object.assign({}, DEF_SETTINGS, Store.get('settings', {}));
+    let P = Object.assign({}, DEF_PROGRESS, Store.get('progress', {}));
+    function saveS() { Store.set('settings', S); } function saveP() { Store.set('progress', P); }
+    function lstat(ch) { if (!P.letter[ch]) P.letter[ch] = { c: 0, t: 0 }; return P.letter[ch]; }
+
+    /* ============================================================
+       Audio
+    ============================================================ */
+    let actx = null, osc = null, master = null;
+    let scheduledNodes = [], playTimers = [];
+    function ensureAudio() {
+      if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+      actx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+      master = actx.createGain(); master.gain.value = 0;
+      osc = actx.createOscillator(); osc.type = 'sine'; osc.frequency.value = S.freq;
+      osc.connect(master).connect(actx.destination); osc.start();
+    }
+    const VOL = () => S.vol / 100;
+    function toneOn() {
+      ensureAudio(); osc.frequency.value = S.freq; const t = actx.currentTime, g = master.gain;
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(VOL(), t + 0.005);
+    }
+    function toneOff() {
+      if (!actx) return; const t = actx.currentTime, g = master.gain;
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + 0.006);
+    }
+    function beepAt(t, len, freq) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'sine'; o.frequency.value = freq || S.freq;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(VOL(), t + 0.008);
+      g.gain.setValueAtTime(VOL(), t + len - 0.008); g.gain.linearRampToValueAtTime(0, t + len);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + len + 0.02);
+      const node = { o, g }; scheduledNodes.push(node);
+      o.onended = () => { const i = scheduledNodes.indexOf(node); if (i >= 0) scheduledNodes.splice(i, 1); };
+    }
+    // Corta de inmediato toda reproducción en curso o agendada (sin clic)
+    function stopPlayback() {
+      playTimers.forEach(clearTimeout); playTimers = [];
+      if (actx) {
+        const now = actx.currentTime;
+        scheduledNodes.forEach(({ o, g }) => {
+          try {
+            g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(g.gain.value, now);
+            g.gain.linearRampToValueAtTime(0, now + 0.01); o.stop(now + 0.02);
+          } catch (e) { }
+        });
+      }
+      scheduledNodes = [];
+      if (navigator.vibrate) { try { navigator.vibrate(0); } catch (e) { } }
+    }
+
+    const unitMs = () => 1200 / S.wpm;                     // PARIS: punto = 1200/PPM ms
+    function charWpm() { return S.farns ? Math.max(S.wpm, 18) : S.wpm; }
+    // Reproduce texto con timing (Farnsworth si está activo). Devuelve duración total (ms).
+    function playText(str, opts) {
+      ensureAudio(); stopPlayback(); opts = opts || {};
+      const uc = 1200 / charWpm() / 1000;                   // unidad de carácter (s)
+      const f = Math.max(charWpm() / S.wpm, 1);            // factor de espaciado
+      let t = actx.currentTime + 0.08;
+      const start = t;
+      const words = str.toUpperCase().trim().split(/\s+/).filter(Boolean);
+      words.forEach((word, wi) => {
+        const letters = word.split('').filter(c => MORSE[c]);
+        letters.forEach((ch, li) => {
+          if (opts.onLetter) { const d = (t - actx.currentTime) * 1000; playTimers.push(setTimeout(() => opts.onLetter(ch), Math.max(0, d))); }
+          const code = MORSE[ch];
+          for (let s = 0; s < code.length; s++) {
+            const len = code[s] === '.' ? uc : uc * 3;
+            beepAt(t, len); haptic(code[s] === '.' ? 20 : 55, (t - actx.currentTime) * 1000);
+            t += len; if (s < code.length - 1) t += uc;
+          }
+          if (li < letters.length - 1) t += uc * 3 * f;
+        });
+        if (wi < words.length - 1) t += uc * 7 * f;
+      });
+      return (t - start) * 1000;
+    }
+    function playMorse(code) {
+      ensureAudio(); stopPlayback(); const u = unitMs() / 1000; let t = actx.currentTime + 0.05;
+      for (let s = 0; s < code.length; s++) { const len = code[s] === '.' ? u : u * 3; beepAt(t, len); t += len + (s < code.length - 1 ? u : 0); }
+    }
+
+    /* ============================================================
+       Haptics
+    ============================================================ */
+    function haptic(ms, delay) {
+      if (!S.vib || !navigator.vibrate) return;
+      if (delay) playTimers.push(setTimeout(() => { try { navigator.vibrate(ms); } catch (e) { } }, delay));
+      else { try { navigator.vibrate(ms); } catch (e) { } }
+    }
+
+    /* ============================================================
+       KEYER (motor de llave compartido)
+    ============================================================ */
+    const Keyer = {
+      els: null, onLetter: null, active: false,
+      isDown: false, current: '', isDash: false, pressStart: 0,
+      dashTimer: null, letterTimer: null, wordTimer: null, raf: 0, segs: [],
+      dotThreshold() { return unitMs() * 2; },
+      letterGap() { return Math.max(unitMs() * 4, 600); },
+      wordGap() { return Math.max(unitMs() * 7, 1200); },
+      bind(scope, onLetter) {
+        this.els = {
+          ring: scope.querySelector('.keyer-lamp-ring'),
+          lamp: scope.querySelector('.keyer-lamp'),
+          meter: scope.querySelector('.keyer-meter'),
+          label: scope.querySelector('.keyer-label'),
+          live: scope.querySelector('.keyer-live'),
+          btn: scope.querySelector('.keyer-btn'),
+        };
+        this.onLetter = onLetter; this.active = true; this.current = '';
+        this.buildMeter(); this.renderLive();
+        if (this.label) this.label.textContent = 'EN REPOSO';
+      },
+      unbind() { this.active = false; this.els = null; this.cancelTimers(); document.body.classList.remove('keying', 'asdash'); },
+      buildMeter() {
+        if (!this.els.meter) return; this.els.meter.innerHTML = ''; this.segs = [];
+        for (let i = 0; i < 10; i++) { const d = document.createElement('div'); d.className = 'seg'; this.els.meter.appendChild(d); this.segs.push(d); }
+      },
+      cancelTimers() { clearTimeout(this.dashTimer); clearTimeout(this.letterTimer); clearTimeout(this.wordTimer); cancelAnimationFrame(this.raf); },
+      down() {
+        if (!this.active || this.isDown) return;
+        this.isDown = true; this.isDash = false;
+        clearTimeout(this.letterTimer); clearTimeout(this.wordTimer); clearTimeout(this.dashTimer);
+        this.pressStart = performance.now();
+        document.body.classList.add('keying'); document.body.classList.remove('asdash');
+        if (this.label) { this.label.textContent = 'PUNTO'; this.label.className = 'meter-label keyer-label dot'; }
+        toneOn(); stopPlayback(); haptic(18);
+        this.dashTimer = setTimeout(() => {
+          this.isDash = true; document.body.classList.add('asdash');
+          if (this.label) { this.label.textContent = 'RAYA'; this.label.className = 'meter-label keyer-label dash'; }
+          haptic(45);
+        }, this.dotThreshold());
+        const loop = () => {
+          if (!this.isDown) return;
+          const el = performance.now() - this.pressStart, frac = Math.min(el / this.dotThreshold(), 1);
+          const lit = Math.round(frac * this.segs.length);
+          this.segs.forEach((s, i) => { s.className = 'seg' + (i < lit ? (this.isDash ? ' dash' : ' on') : ''); });
+          this.raf = requestAnimationFrame(loop);
+        };
+        this.raf = requestAnimationFrame(loop);
+      },
+      up() {
+        if (!this.active || !this.isDown) return;
+        this.isDown = false; clearTimeout(this.dashTimer); cancelAnimationFrame(this.raf);
+        toneOff(); document.body.classList.remove('keying', 'asdash');
+        if (this.label) { this.label.textContent = 'EN REPOSO'; this.label.className = 'meter-label keyer-label'; }
+        this.segs.forEach(s => s.className = 'seg');
+        this.current += this.isDash ? '-' : '.';
+        this.renderLive();
+        this.letterTimer = setTimeout(() => this.finalize(), this.letterGap());
+      },
+      renderLive() {
+        if (!this.els || !this.els.live) return;
+        if (!this.current) { this.els.live.innerHTML = '<span class="ph">listo…</span>'; return; }
+        const html = [...this.current].map(s => s === '.' ? '<span class="d">•</span>' : '<span class="h">—</span>').join(' ');
+        const g = REVERSE[this.current];
+        this.els.live.innerHTML = html + (g ? ' <span style="color:var(--muted)">→ ' + g + '</span>' : '');
+      },
+      finalize() {
+        if (!this.current) return;
+        const ch = REVERSE[this.current] || '?';
+        const code = this.current; this.current = '';
+        this.renderLive();
+        if (this.onLetter) this.onLetter(ch, code);
+      }
+    };
+    // Entradas globales
+    function typingInField() { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); }
+    window.addEventListener('keydown', e => {
+      if (typingInField()) return;
+      if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) Keyer.down(); }
+      else if (e.code === 'Backspace') { e.preventDefault(); if (curScreen === 'telegrafo') tapeDel(); }
+    });
+    window.addEventListener('keyup', e => { if (e.code === 'Space' && Keyer.isDown) { e.preventDefault(); Keyer.up(); } });
+    function armKeyerButtons() {
+      document.querySelectorAll('[data-keyer]').forEach(scope => {
+        const targets = [scope.querySelector('.keyer-lamp-ring'), scope.querySelector('.keyer-btn')];
+        targets.forEach(el => {
+          if (!el || el.dataset.bound) return; el.dataset.bound = '1';
+          el.addEventListener('pointerdown', ev => {
+            ev.preventDefault();
+            if (el.setPointerCapture) { try { el.setPointerCapture(ev.pointerId); } catch (_) { } } Keyer.down();
+          });
+        });
+      });
+    }
+    window.addEventListener('pointerup', () => { if (Keyer.isDown) Keyer.up(); });
+    window.addEventListener('pointercancel', () => { if (Keyer.isDown) Keyer.up(); });
+
+    /* ============================================================
+       Navegación de pantallas
+    ============================================================ */
+    let curScreen = 'inicio';
+    function showScreen(name) {
+      curScreen = name;
+      document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === name));
+      document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.screen === name));
+      Keyer.unbind();
+      if (name === 'telegrafo') { const sc = document.getElementById('telegrafo'); Keyer.bind(sc, telegrafoLetter); armKeyerButtons(); }
+      if (name === 'entrenar' && trCurrentMode === 'tx') { bindTxKeyer(); }
+      if (name === 'aprender') renderLearn();
+      if (name === 'entrenar') renderTrain();
+      if (name === 'recuperar') renderRecover();
+      if (name === 'progreso') renderProgreso();
+      if (name === 'ajustes') renderAjustes();
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+    document.getElementById('tabs').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) showScreen(t.dataset.screen); });
+    document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => showScreen(b.dataset.go)));
+
+    /* ============================================================
+       TELÉGRAFO
+    ============================================================ */
+    let tapeText = '';
+    const tapeEl = document.getElementById('tape');
+    function renderTape() { tapeEl.innerHTML = (tapeText.replace(/ /g, '&nbsp;') || '') + '<span class="cursor">▌</span>'; }
+    function tapeDel() { tapeText = tapeText.slice(0, -1); renderTape(); }
+    function telegrafoLetter(ch) {
+      tapeText += ch; renderTape(); highlight(ch);
+      Keyer.wordTimer = setTimeout(() => { tapeText += ' '; renderTape(); }, Keyer.wordGap() - Keyer.letterGap());
+    }
+    document.getElementById('clearBtn').onclick = () => { tapeText = ''; Keyer.current = ''; Keyer.renderLive(); renderTape(); };
+    document.getElementById('backBtn').onclick = tapeDel;
+    renderTape();
+
+    // abecedario + heatmap
+    function buildChart(el, withAcc) {
+      el.innerHTML = '';
+      Object.keys(MORSE).forEach(ch => {
+        const cell = document.createElement('div'); cell.className = 'cell'; cell.dataset.ch = ch;
+        let acc = ''; if (withAcc) {
+          const st = lstat(ch); const a = st.t ? Math.round(st.c / st.t * 100) : 0;
+          acc = '<div class="acc"><i style="width:' + a + '%"></i></div>';
+        }
+        cell.innerHTML = '<div class="ch">' + ch + '</div><div class="mc">' + fmt(MORSE[ch]) + '</div>' + acc;
+        cell.onclick = () => { playMorse(MORSE[ch]); highlight(ch); };
+        el.appendChild(cell);
+      });
+    }
+    function highlight(ch) {
+      document.querySelectorAll('.cell[data-ch="' + ch + '"]').forEach(c => {
+        c.classList.add('lit'); setTimeout(() => c.classList.remove('lit'), 600);
+      });
+    }
+    buildChart(document.getElementById('chart'), false);
+
+    // escribe y escucha
+    const wordInput = document.getElementById('wordInput'), wordMorse = document.getElementById('wordMorse');
+    function renderWordMorse() {
+      const str = wordInput.value.toUpperCase();
+      if (!str.trim()) { wordMorse.innerHTML = '<span style="color:var(--muted)">aquí verás el morse…</span>'; return; }
+      wordMorse.innerHTML = [...str].map(ch => {
+        if (ch === ' ') return '<span style="width:14px"></span>';
+        const code = MORSE[ch]; if (!code) return '<span class="grp bad"><span class="sym">·?·</span><span class="lt">' + ch + '</span></span>';
+        return '<span class="grp"><span class="sym">' + fmt(code) + '</span><span class="lt">' + ch + '</span></span>';
+      }).join('');
+    }
+    wordInput.addEventListener('input', renderWordMorse);
+    document.getElementById('playWord').onclick = () => { if (wordInput.value.trim()) playText(wordInput.value); };
+    wordInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (wordInput.value.trim()) playText(wordInput.value); } });
+    renderWordMorse();
+
+    /* ============================================================
+       Utilidades de quiz
+    ============================================================ */
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    function distractors(correct, pool, n) {
+      const set = new Set([correct]); const out = [];
+      const p = pool.filter(x => x !== correct);
+      while (out.length < n && p.length) {
+        const c = pick(p); if (!set.has(c)) { set.add(c); out.push(c); }
+        if (set.size >= pool.length) break;
+      }
+      const all = [correct, ...out]; for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[all[i], all[j]] = [all[j], all[i]]; }
+      return all;
+    }
+    function recordAnswer(ch, correct) {
+      const st = lstat(ch); st.t++; if (correct) st.c++;
+      P.totalAttempts++; if (correct) { P.totalCorrect++; addXp(10); }
+      saveP();
+    }
+    function addXp(n) {
+      P.xp += n; const r = rankFor(P.xp);
+      document.getElementById('rdRank').textContent = r.short; saveP();
+    }
+    const RANKS = [{ x: 0, name: 'Escucha (SWL)', short: 'SWL' }, { x: 120, name: 'Novato', short: 'NOV' },
+    { x: 400, name: 'General', short: 'GEN' }, { x: 900, name: 'Avanzado / DX', short: 'DX' }, { x: 1800, name: 'Extra', short: 'EXTRA' }];
+    function rankFor(xp) { let r = RANKS[0]; for (const k of RANKS) if (xp >= k.x) r = k; return r; }
+
+    const ACH = [
+      { id: 'first', icon: '·', t: 'Primer destello', d: 'Emitiste tu primer símbolo.' },
+      { id: 's10', icon: '≡', t: 'Racha de 10', d: '10 aciertos seguidos.' },
+      { id: 's25', icon: '⚡', t: 'Racha de 25', d: '25 aciertos seguidos.' },
+      { id: 'lvl', icon: '▲', t: 'Subiste de nivel Koch', d: 'Desbloqueaste caracteres nuevos.' },
+      { id: 'qso', icon: '⌁', t: 'Primer QSO', d: 'Copiaste una transmisión completa.' },
+      { id: 'c100', icon: '★', t: '100 aciertos', d: '100 respuestas correctas en total.' }
+    ];
+    function grant(id) {
+      if (P.ach.includes(id)) return; P.ach.push(id); saveP();
+      const a = ACH.find(x => x.id === id); if (a) toast('🏅 ' + a.t);
+    }
+    function toast(msg) {
+      const el = document.getElementById('toast'); el.textContent = msg; el.classList.add('show');
+      clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+    }
+
+    /* ============================================================
+       APRENDER (Koch)
+    ============================================================ */
+    let learnCur = null;
+    function renderLearn() {
+      const set = unlockedSet(P.level);
+      document.getElementById('lvlNum').textContent = P.level + 1;
+      document.getElementById('learnChars').textContent = set.join('  ');
+      const acc = P.lvlAttempts ? Math.round(P.lvlCorrect / P.lvlAttempts * 100) : 0;
+      document.getElementById('lvlAcc').textContent = P.lvlAttempts ? acc + '%' : '—';
+      document.getElementById('learnProg').textContent =
+        'Llevas ' + P.lvlCorrect + '/' + P.lvlAttempts + '. Acierta el 90% de al menos 12 intentos para abrir el nivel ' + (P.level + 2) + '.';
+      document.getElementById('learnTip').textContent = LEVELS[P.level].map(c => TIPS[c]).filter(Boolean)[0] || '';
+      document.getElementById('learnOpts').innerHTML = '';
+      document.getElementById('learnReveal').innerHTML = '';
+      document.getElementById('learnFb').textContent = 'Pulsa “escuchar” y elige la letra que oíste.';
+    }
+    function learnNew() {
+      const set = unlockedSet(P.level); learnCur = pick(set);
+      document.getElementById('learnReveal').innerHTML = '';
+      document.getElementById('learnFb').textContent = 'Escuchando…';
+      document.getElementById('learnFb').className = 'feedback';
+      const opts = distractors(learnCur, set, Math.min(4, set.length - 1));
+      const box = document.getElementById('learnOpts'); box.innerHTML = '';
+      opts.forEach(o => {
+        const b = document.createElement('div'); b.className = 'opt'; b.textContent = o;
+        b.onclick = () => learnAnswer(b, o); box.appendChild(b);
+      });
+      playText(learnCur); grant('first');
+    }
+    function learnAnswer(btn, val) {
+      if (!learnCur) return; const correct = val === learnCur;
+      document.querySelectorAll('#learnOpts .opt').forEach(b => {
+        b.style.pointerEvents = 'none';
+        if (b.textContent === learnCur) b.classList.add('ok'); else if (b === btn) b.classList.add('no');
+      });
+      const fb = document.getElementById('learnFb');
+      fb.textContent = correct ? '¡Correcto!' : 'Era ' + learnCur + '  (' + fmt(MORSE[learnCur]) + ')';
+      fb.className = 'feedback ' + (correct ? 'ok' : 'no');
+      document.getElementById('learnReveal').innerHTML = '<span class="code">' + fmt(MORSE[learnCur]) + '</span>';
+      recordAnswer(learnCur, correct);
+      P.lvlAttempts++; if (correct) P.lvlCorrect++;
+      if (P.totalCorrect >= 100) grant('c100');
+      // ¿desbloquear?
+      if (P.lvlAttempts >= 12 && P.lvlCorrect / P.lvlAttempts >= 0.9 && P.level < LEVELS.length - 1) {
+        P.level++; P.lvlAttempts = 0; P.lvlCorrect = 0; grant('lvl'); addXp(50);
+        toast('▲ Nivel ' + (P.level + 1) + ' desbloqueado');
+      }
+      saveP();
+      setTimeout(() => { renderLearn(); }, 1300);
+    }
+    document.getElementById('learnPlay').onclick = learnNew;
+    document.getElementById('learnRepeat').onclick = () => { if (learnCur) playText(learnCur); };
+    document.getElementById('lvlReset').onclick = () => { P.lvlAttempts = 0; P.lvlCorrect = 0; saveP(); renderLearn(); };
+
+    /* ============================================================
+       ENTRENAR
+    ============================================================ */
+    let trCurrentMode = 'rx', trStreak = 0, trReactTimes = [], trSessC = 0, trSessT = 0, trRxCur = null, trRxStart = 0, trTxCur = null;
+    function trainSet() { return unlockedSet(Math.max(P.level, 1)); } // al menos primeros niveles
+    function renderTrain() {
+      document.getElementById('trStreak').textContent = trStreak;
+      document.getElementById('trBest').textContent = P.bestStreak;
+      document.getElementById('trAcc').textContent = trSessT ? Math.round(trSessC / trSessT * 100) + '%' : '—';
+      document.getElementById('trReact').textContent = trReactTimes.length ?
+        (trReactTimes.reduce((a, b) => a + b, 0) / trReactTimes.length / 1000).toFixed(1) + 's' : '—';
+      if (trCurrentMode === 'rx') { document.getElementById('trRx').style.display = ''; document.getElementById('trTx').style.display = 'none'; Keyer.unbind(); }
+      else { document.getElementById('trRx').style.display = 'none'; document.getElementById('trTx').style.display = ''; bindTxKeyer(); }
+    }
+    document.getElementById('trMode').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      trCurrentMode = b.dataset.m;
+      document.querySelectorAll('#trMode button').forEach(x => x.setAttribute('aria-pressed', x === b));
+      renderTrain(); if (trCurrentMode === 'tx') trTxNew();
+    });
+    // RX
+    function trRxNew() {
+      const set = trainSet(); trRxCur = pick(set);
+      document.getElementById('trRxReveal').innerHTML = '';
+      const fb = document.getElementById('trRxFb'); fb.textContent = 'Escuchando…'; fb.className = 'feedback';
+      const opts = distractors(trRxCur, set, Math.min(5, set.length - 1));
+      const box = document.getElementById('trRxOpts'); box.innerHTML = '';
+      opts.forEach(o => {
+        const b = document.createElement('div'); b.className = 'opt'; b.textContent = o;
+        b.onclick = () => trRxAnswer(b, o); box.appendChild(b);
+      });
+      playText(trRxCur); trRxStart = performance.now();
+    }
+    function trRxAnswer(btn, val) {
+      if (!trRxCur) return; const correct = val === trRxCur;
+      const rt = performance.now() - trRxStart; if (correct) trReactTimes.push(rt);
+      document.querySelectorAll('#trRxOpts .opt').forEach(b => {
+        b.style.pointerEvents = 'none';
+        if (b.textContent === trRxCur) b.classList.add('ok'); else if (b === btn) b.classList.add('no');
+      });
+      const fb = document.getElementById('trRxFb');
+      fb.textContent = correct ? '¡Correcto! ' + (rt / 1000).toFixed(1) + 's' : 'Era ' + trRxCur;
+      fb.className = 'feedback ' + (correct ? 'ok' : 'no');
+      document.getElementById('trRxReveal').innerHTML = '<span class="code">' + fmt(MORSE[trRxCur]) + '</span>';
+      scoreCommon(trRxCur, correct);
+      setTimeout(renderTrain, 400);
+    }
+    document.getElementById('trRxPlay').onclick = trRxNew;
+    document.getElementById('trRxRepeat').onclick = () => { if (trRxCur) playText(trRxCur); };
+    // TX
+    function bindTxKeyer() { const sc = document.getElementById('trTx'); Keyer.bind(sc, trTxLetter); armKeyerButtons(); if (!trTxCur) trTxNew(); }
+    function trTxNew() {
+      const set = trainSet(); trTxCur = pick(set);
+      document.getElementById('trTxLetter').textContent = trTxCur;
+      document.getElementById('trTxCode').textContent = fmt(MORSE[trTxCur]);
+      const fb = document.getElementById('trTxFb'); fb.textContent = 'Keyea la letra.'; fb.className = 'feedback';
+    }
+    function trTxLetter(ch, code) {
+      const correct = code === MORSE[trTxCur];
+      const fb = document.getElementById('trTxFb');
+      fb.textContent = correct ? '¡Bien! ' + trTxCur + ' = ' + fmt(MORSE[trTxCur]) : 'Diste ' + fmt(code) + ' (' + (ch === '?' ? 'desconocido' : ch) + '). ' + trTxCur + ' es ' + fmt(MORSE[trTxCur]);
+      fb.className = 'feedback ' + (correct ? 'ok' : 'no');
+      scoreCommon(trTxCur, correct);
+      renderTrain();
+      setTimeout(trTxNew, 1100);
+    }
+    document.getElementById('trTxSkip').onclick = trTxNew;
+    function scoreCommon(ch, correct) {
+      recordAnswer(ch, correct); trSessT++; if (correct) {
+        trSessC++; trStreak++;
+        if (trStreak > P.bestStreak) { P.bestStreak = trStreak; saveP(); }
+        if (trStreak === 10) grant('s10'); if (trStreak === 25) grant('s25');
+      } else trStreak = 0;
+      if (P.totalCorrect >= 100) grant('c100');
+    }
+
+    /* ============================================================
+       RECUPERAR (adaptativo)
+    ============================================================ */
+    let recCur = null, recWpm = null, recStreak = 0;
+    function recPool() { return Object.keys(MORSE).filter(c => /[A-Z]/.test(c)); }
+    function weightOf(ch) {
+      const st = lstat(ch); const acc = st.t ? st.c / st.t : 0;
+      let w = (1 - acc) + 0.15; if (st.t < 3) w += 0.8; return w;
+    }
+    function recPick() {
+      const pool = recPool(); const ws = pool.map(weightOf); const sum = ws.reduce((a, b) => a + b, 0);
+      let r = Math.random() * sum; for (let i = 0; i < pool.length; i++) { r -= ws[i]; if (r <= 0) return pool[i]; } return pool[0];
+    }
+    function weakest(n) {
+      return recPool().map(c => ({ c, ...lstat(c) }))
+        .sort((a, b) => ((a.t ? a.c / a.t : 0)) - ((b.t ? b.c / b.t : 0))).slice(0, n).map(x => x.c);
+    }
+    function renderRecover() {
+      if (recWpm === null) recWpm = S.wpm;
+      document.getElementById('recWpm').textContent = recWpm;
+      document.getElementById('recStreak').textContent = recStreak;
+      document.getElementById('recWeak').textContent = weakest(3).join('  ');
+      document.getElementById('recOpts').innerHTML = '';
+      document.getElementById('recReveal').innerHTML = '';
+    }
+    function recNew() {
+      recCur = recPick();
+      const pool = recPool(); const opts = distractors(recCur, pool, 5);
+      const box = document.getElementById('recOpts'); box.innerHTML = '';
+      opts.forEach(o => {
+        const b = document.createElement('div'); b.className = 'opt'; b.textContent = o;
+        b.onclick = () => recAnswer(b, o); box.appendChild(b);
+      });
+      document.getElementById('recReveal').innerHTML = '';
+      const fb = document.getElementById('recFb'); fb.textContent = 'Escuchando…'; fb.className = 'feedback';
+      const savedWpm = S.wpm; S.wpm = recWpm; playText(recCur); S.wpm = savedWpm;
+    }
+    function recAnswer(btn, val) {
+      if (!recCur) return; const correct = val === recCur;
+      document.querySelectorAll('#recOpts .opt').forEach(b => {
+        b.style.pointerEvents = 'none';
+        if (b.textContent === recCur) b.classList.add('ok'); else if (b === btn) b.classList.add('no');
+      });
+      const fb = document.getElementById('recFb');
+      fb.textContent = correct ? '¡Correcto!' : 'Era ' + recCur + ' (' + fmt(MORSE[recCur]) + ')';
+      fb.className = 'feedback ' + (correct ? 'ok' : 'no');
+      document.getElementById('recReveal').innerHTML = '<span class="code">' + fmt(MORSE[recCur]) + '</span>';
+      recordAnswer(recCur, correct);
+      if (correct) { recStreak++; if (recStreak > 0 && recStreak % 5 === 0 && recWpm < 25) { recWpm++; toast('↑ velocidad ' + recWpm + ' PPM'); } }
+      else { recStreak = 0; if (recWpm > 6) recWpm--; }
+      if (recStreak > P.bestStreak) { P.bestStreak = recStreak; saveP(); }
+      setTimeout(() => { renderRecover(); }, 900);
+    }
+    document.getElementById('recPlay').onclick = recNew;
+    document.getElementById('recRepeat').onclick = () => { if (recCur) { const s = S.wpm; S.wpm = recWpm; playText(recCur); S.wpm = s; } };
+
+    /* ============================================================
+       RADIO (QSO simulado)
+    ============================================================ */
+    let radioWpm = 9, radioText = '';
+    const PREF = ['CE3', 'CE1', 'CE2', 'CE4', 'LU', 'CX', 'EA', 'W', 'K'];
+    function callsign() {
+      const p = pick(PREF); const n = Math.floor(Math.random() * 9);
+      let s = ''; for (let i = 0; i < 3; i++) s += String.fromCharCode(65 + Math.floor(Math.random() * 26)); return p + n + s;
+    }
+    function genQso() {
+      const a = callsign(), b = callsign();
+      const tpl = [
+        'CQ CQ CQ DE ' + a + ' ' + a + ' K',
+        a + ' DE ' + b + ' R RST 599 QTH SANTIAGO 73 K',
+        'DE ' + a + ' GM OM TNX FER CALL RST 579 K',
+        'CQ DE ' + a + ' PSE K',
+        a + ' DE ' + b + ' QSL 73 73 SK'
+      ];
+      return pick(tpl);
+    }
+    document.getElementById('radioDiff').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      radioWpm = +b.dataset.w; document.querySelectorAll('#radioDiff button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    });
+    function radioPlay() { const s = S.wpm; S.wpm = radioWpm; playText(radioText); S.wpm = s; }
+    document.getElementById('radioNew').onclick = () => {
+      radioText = genQso();
+      document.getElementById('radioTape').innerHTML = '<span class="mono" style="color:#8a7a55">▶ transmitiendo… copia lo que entiendas</span>';
+      document.getElementById('radioCopy').value = ''; document.getElementById('radioFb').textContent = '';
+      radioPlay();
+    };
+    document.getElementById('radioReplay').onclick = () => { if (radioText) radioPlay(); };
+    document.getElementById('radioReveal').onclick = () => {
+      if (radioText)
+        document.getElementById('radioTape').innerHTML = '<span class="mono">' + radioText + '</span>';
+    };
+    document.getElementById('radioCheck').onclick = () => {
+      if (!radioText) return;
+      const got = document.getElementById('radioCopy').value.toUpperCase().replace(/\s+/g, ' ').trim();
+      const exp = radioText.toUpperCase().replace(/\s+/g, ' ').trim();
+      // similitud por caracteres alineados simples
+      const a = exp.replace(/ /g, ''), c = got.replace(/ /g, ''); let m = 0;
+      for (let i = 0; i < Math.min(a.length, c.length); i++) if (a[i] === c[i]) m++;
+      const pct = a.length ? Math.round(m / a.length * 100) : 0;
+      const fb = document.getElementById('radioFb');
+      fb.textContent = 'Coincidencia ~' + pct + '%.  Transmitido: ' + radioText;
+      fb.className = 'feedback ' + (pct >= 70 ? 'ok' : 'no');
+      document.getElementById('radioTape').innerHTML = '<span class="mono">' + radioText + '</span>';
+      if (pct >= 70) { P.qso++; addXp(40); grant('qso'); saveP(); }
+    };
+
+    /* ============================================================
+       PROGRESO
+    ============================================================ */
+    function renderProgreso() {
+      const r = rankFor(P.xp); document.getElementById('pgRank').textContent = r.name;
+      document.getElementById('pgXp').textContent = P.xp;
+      document.getElementById('pgAcc').textContent = P.totalAttempts ? Math.round(P.totalCorrect / P.totalAttempts * 100) + '%' : '—';
+      document.getElementById('pgBest').textContent = P.bestStreak;
+      document.getElementById('pgLevel').textContent = P.level + 1;
+      document.getElementById('pgQso').textContent = P.qso;
+      buildChart(document.getElementById('heat'), true);
+      const list = document.getElementById('achList'); list.innerHTML = '';
+      ACH.forEach(a => {
+        const has = P.ach.includes(a.id); const d = document.createElement('div');
+        d.className = 'ach' + (has ? '' : ' locked');
+        d.innerHTML = '<div class="badge">' + a.icon + '</div><div><div class="t">' + a.t + '</div><div class="d">' + a.d + '</div></div>';
+        list.appendChild(d);
+      });
+    }
+
+    /* ============================================================
+       AJUSTES
+    ============================================================ */
+    function renderAjustes() {
+      document.getElementById('freq').value = S.freq; document.getElementById('freqVal').textContent = S.freq;
+      document.getElementById('wpm').value = S.wpm; document.getElementById('wpmVal').textContent = S.wpm;
+      document.getElementById('vol').value = S.vol;
+      document.getElementById('farns').checked = S.farns; document.getElementById('vib').checked = S.vib;
+      document.querySelectorAll('#toneBtns .btn[data-f]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.f === S.freq));
+      document.getElementById('storeNote').textContent = Store.ok
+        ? 'Tu progreso se guarda en este dispositivo.'
+        : 'Aviso: este navegador bloquea el almacenamiento; el progreso no se guardará al cerrar.';
+    }
+    function syncReadout() {
+      document.getElementById('rdWpm').textContent = S.wpm; document.getElementById('rdTone').textContent = S.freq;
+      document.getElementById('kWpm').textContent = S.wpm; document.getElementById('rdRank').textContent = rankFor(P.xp).short;
+    }
+    document.getElementById('toneBtns').addEventListener('click', e => {
+      const b = e.target.closest('.btn[data-f]'); if (!b) return;
+      S.freq = +b.dataset.f; saveS(); renderAjustes(); syncReadout();
+    });
+    document.getElementById('toneTest').onclick = () => { ensureAudio(); beepAt(actx.currentTime + 0.02, 0.4, S.freq); };
+    document.getElementById('freq').addEventListener('input', e => {
+      S.freq = +e.target.value; document.getElementById('freqVal').textContent = S.freq;
+      document.querySelectorAll('#toneBtns .btn[data-f]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.f === S.freq)); saveS(); syncReadout();
+    });
+    document.getElementById('wpm').addEventListener('input', e => { S.wpm = +e.target.value; document.getElementById('wpmVal').textContent = S.wpm; saveS(); syncReadout(); });
+    document.getElementById('vol').addEventListener('input', e => { S.vol = +e.target.value; saveS(); });
+    document.getElementById('farns').addEventListener('change', e => { S.farns = e.target.checked; saveS(); });
+    document.getElementById('vib').addEventListener('change', e => { S.vib = e.target.checked; saveS(); if (S.vib) haptic(30); });
+    document.getElementById('resetAll').onclick = () => {
+      if (confirm('¿Borrar todo tu progreso y ajustes?')) {
+        P = JSON.parse(JSON.stringify(DEF_PROGRESS)); S = JSON.parse(JSON.stringify(DEF_SETTINGS));
+        saveP(); saveS(); syncReadout(); renderAjustes(); toast('Datos borrados');
+      }
+    };
+
+    /* ============================================================
+       Init
+    ============================================================ */
+    syncReadout();
+    showScreen('inicio');
+  </script>
+</body>
+
+</html>

@@ -91,13 +91,43 @@ export function buildSignalLine(text, { height = 12, stroke = 2 } = {}) {
 }
 
 /**
- * Inserta una línea de señal en `host`.
+ * Inserta una línea de señal en `host` y la barre cuando entra en pantalla.
+ *
+ * El barrido se disparaba al montar la vista, pero la banda inferior de la home
+ * está a más de cuatro mil píxeles del fold: la animación empezaba y terminaba
+ * mientras el usuario seguía mirando el hero, y al llegar allí no quedaba nada
+ * que ver. Un IntersectionObserver por instancia —son dos por página— pone
+ * `data-sweep="run"` en el momento correcto y se da de baja.
+ *
+ * Con movimiento reducido no hay barrido: se marca `run` igualmente y el CSS,
+ * que sólo declara la animación bajo `[data-motion='full']`, la ignora.
+ *
  * @param {HTMLElement} host
  * @param {string} text
  */
 export function SignalLine(host, text, opts) {
   host.replaceChildren(buildSignalLine(text, opts));
+  host.dataset.sweep = 'pending';
+
+  let observer = null;
+  if (typeof IntersectionObserver === 'function') {
+    observer = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      host.dataset.sweep = 'run';
+      observer.disconnect();
+      observer = null;
+    }, { threshold: 0.35 });
+    observer.observe(host);
+  } else {
+    host.dataset.sweep = 'run';
+  }
+
   return {
-    destroy() { host.replaceChildren(); }
+    destroy() {
+      observer?.disconnect();
+      observer = null;
+      host.replaceChildren();
+      delete host.dataset.sweep;
+    }
   };
 }

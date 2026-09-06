@@ -18,10 +18,21 @@ import * as frameLoop from '../ui/frame-loop.js';
 import { Waveform } from '../ui/waveform.js';
 import { MorseGlyph } from '../ui/morse-glyph.js';
 import { observeReveals } from '../ui/reveal.js';
+import { isInteractive } from '../ui/keys.js';
 import { MORSE, ORDER, fmt, tokenize } from '../data/morse.js';
-import { pick } from '../core/srs.js';
+import { pick } from '../core/adaptive.js';
 
 const TX_POOL = 'ETANIMSORHDULCGKWBPF'.split('');
+
+/**
+ * Tope del traductor.
+ *
+ * `scheduleUtterance` escribe cuatro puntos de automatización por elemento de
+ * forma síncrona. Medido en este proyecto: 500 caracteres ~28 ms (un frame),
+ * 1000 ~56 ms, y 6000 bloqueaban el hilo principal 2,1 s — un cuelgue visible.
+ * 500 caracteres ya son más de cinco minutos de audio a 13 PPM.
+ */
+const TRANSLATOR_MAX = 500;
 
 export function mount(root, scope) {
   root.innerHTML = `
@@ -54,7 +65,10 @@ export function mount(root, scope) {
       <span class="key__label" id="padLabel">Pulsa para transmitir</span>
     </button>
 
-    <p class="key__state" id="padState" role="status" aria-live="off">Reposo</p>
+    <!-- Indicador visual del contacto. Sin región viva a propósito: anunciar
+         "Punto / Raya / Reposo" en cada pulsación inundaría al lector de
+         pantalla. Lo que sí se anuncia es la letra ya decodificada, abajo. -->
+    <p class="key__state" id="padState" aria-hidden="true">Reposo</p>
 
     <div class="desk__signal">
       <div class="wave" id="freeWave"></div>
@@ -65,7 +79,11 @@ export function mount(root, scope) {
 
     <div class="tapewrap" id="tapeWrap">
       <p class="section-label">Transmisión</p>
-      <div class="tape" id="tape" aria-live="polite" aria-label="Texto decodificado"><span class="tape__cursor">▌</span></div>
+      <!-- role=log y no un div con aria-live: un div sin rol es "generic",
+         donde ARIA 1.2 prohibe aria-label y varios lectores lo ignoran.
+         log es una region viva educada y con nombre propio para un
+         registro que solo crece. -->
+    <div class="tape" id="tape" role="log" aria-label="Texto decodificado"><span class="tape__cursor">▌</span></div>
       <div class="desk__actions">
         <button class="btn" type="button" id="tapeBack">Borrar</button>
         <button class="btn" type="button" id="tapeClear">Limpiar</button>
@@ -84,7 +102,12 @@ export function mount(root, scope) {
     <h2 class="title tool__title" id="transTitle">Escribe y escúchalo.</h2>
     <label class="sr-only" for="transIn">Texto a convertir</label>
     <input class="input input--lg" id="transIn" placeholder="Escribe algo: hola"
-           autocomplete="off" spellcheck="false">
+           autocomplete="off" spellcheck="false" maxlength="${TRANSLATOR_MAX}"
+           aria-describedby="transHint">
+    <p class="field__hint" id="transHint">
+      Hasta ${TRANSLATOR_MAX} caracteres. Las tildes se transmiten sin acento y
+      la Ñ como N: no están en la tabla internacional.
+    </p>
     <div class="glyph tool__out" id="transOut"></div>
     <div class="desk__actions">
       <button class="btn btn--primary" type="button" id="transPlay">Reproducir</button>
@@ -114,12 +137,17 @@ export function mount(root, scope) {
   let mode = 'free';
   let tape = '';
   let txTarget = null;
-  const prefs = store.getPrefs();
 
   /* --------------------------------------------------------------- la llave */
 
+  /**
+   * La preferencia se lee EN CADA vibración, no al montar.
+   * Ajustes vive en un panel superpuesto que no desmonta esta vista, así que
+   * una copia tomada aquí se quedaba congelada: el usuario apagaba la
+   * vibración y el teléfono seguía vibrando hasta cambiar de ruta.
+   */
   function vibrate(ms) {
-    if (!prefs.haptics || !navigator.vibrate) return;
+    if (!navigator.vibrate || !store.getPrefs().haptics) return;
     try { navigator.vibrate(ms); } catch { /* no soportado */ }
   }
 
@@ -157,18 +185,25 @@ export function mount(root, scope) {
   scope.on(pad, 'pointercancel', () => keyer.forceRelease());
   scope.on(pad, 'lostpointercapture', () => keyer.forceRelease());
 
-  // Barra espaciadora. Se ignora si el foco está en un campo de texto.
+  /**
+   * Barra espaciadora: transmite, salvo que el foco esté en otro control.
+   *
+   * `pad` es la excepción: ahí Space ES la llave, y su etiqueta lo anuncia.
+   * En cualquier otro botón, enlace o campo manda la semántica nativa —antes
+   * Space sobre "Limpiar" o "Reproducir" transmitía en vez de activarlos.
+   */
+  const spaceIsKey = (e) => e.code === 'Space' && !isInteractive(e.target, pad);
+
   scope.on(window, 'keydown', (e) => {
-    if (e.code !== 'Space' || e.repeat) return;
-    if (e.target instanceof HTMLInputElement) return;
+    if (!spaceIsKey(e) || e.repeat) return;
     e.preventDefault();
     player.stopAll();
     keyer.press(store.getSettings());
   });
+  // El keyup no filtra por control: si la llave está abierta hay que cerrarla
+  // pase lo que pase con el foco entre medias.
   scope.on(window, 'keyup', (e) => {
     if (e.code !== 'Space') return;
-    if (e.target instanceof HTMLInputElement) return;
-    e.preventDefault();
     keyer.release();
   });
 
@@ -228,13 +263,17 @@ export function mount(root, scope) {
     txFb.dataset.tone = '';
   }
 
+  let txTimer = 0;
   function checkTx({ ch, code }) {
     const correct = code === MORSE[txTarget];
     txFb.textContent = correct
       ? `✓ ${txTarget}`
       : `Recibí ${ch === '?' ? fmt(code) : ch} · ${txTarget} es ${fmt(MORSE[txTarget])}`;
     txFb.dataset.tone = correct ? 'ok' : 'no';
-    scope.timeout(newTx, 1250);
+    // Un único temporizador: transmitir tres letras seguidas encadenaba tres
+    // cambios de objetivo solapados.
+    clearTimeout(txTimer);
+    txTimer = setTimeout(() => { if (!scope.disposed) newTx(); }, 1250);
   }
 
   function setMode(next) {
@@ -249,6 +288,7 @@ export function mount(root, scope) {
     padLabel.textContent = isTx ? 'Transmite la letra' : 'Pulsa para transmitir';
     txFb.textContent = '';
     txFb.dataset.tone = '';
+    clearTimeout(txTimer);
     keyer.clear();
     liveGlyph.setCode('');
     if (isTx) newTx();
@@ -295,12 +335,18 @@ export function mount(root, scope) {
   }
 
   scope.on(transIn, 'input', renderTranslation);
+  scope.on(transIn, 'paste', () => {
+    // El recorte por `maxlength` al pegar no dispara 'input' en todos los
+    // navegadores; un microtask después el valor ya está puesto.
+    queueMicrotask(renderTranslation);
+  });
   scope.on(transIn, 'keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); $('transPlay').click(); }
   });
   scope.on($('transPlay'), 'click', async () => {
     if (!transIn.value.trim()) return;
     await audio.resume();
+    if (scope.disposed) return;   // se cambió de ruta durante el await
     player.playText(transIn.value, store.getSettings());
   });
   scope.on($('transStop'), 'click', () => player.stopAll());
@@ -326,6 +372,7 @@ export function mount(root, scope) {
     cell.append(chEl, codeEl);
     cell.addEventListener('click', async () => {
       await audio.resume();
+      if (scope.disposed) return;
       player.playText(ch, store.getSettings());
       flashAlpha(ch);
     });
@@ -348,5 +395,5 @@ export function mount(root, scope) {
 
   renderTape();
   scope.add(observeReveals(root));
-  scope.add(() => keyer.dispose());
+  scope.add(() => { clearTimeout(txTimer); keyer.dispose(); });
 }

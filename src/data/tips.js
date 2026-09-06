@@ -1,6 +1,9 @@
 /**
- * Mnemotecnias por carácter. Se muestran como apoyo, nunca como sustituto
- * del oído: la idea del método Koch es reconocer el ritmo, no memorizar tabla.
+ * Mnemotecnias por carácter.
+ *
+ * Son AYUDA, no material de estudio: Aprender las saca cuando fallas esa
+ * letra, nunca antes de que suene. La idea del método Koch es reconocer el
+ * ritmo, no leerse la tabla.
  */
 export const TIPS = {
   E: 'E es el destello más corto: un punto.',
@@ -30,9 +33,3 @@ export const TIPS = {
   J: 'J: un punto y tres rayas.',
   Q: 'Q: dos rayas, punto, raya.'
 };
-
-/** Primera pista disponible del conjunto de caracteres dado. */
-export function tipFor(chars) {
-  for (const ch of chars) if (TIPS[ch]) return TIPS[ch];
-  return '';
-}

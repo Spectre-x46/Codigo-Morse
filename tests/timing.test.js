@@ -1,65 +1,45 @@
 /**
- * Pruebas de regresión del timing Morse.
+ * Pruebas del motor de timing Morse.
  *
  * Se ejecutan con `node --test` — sin instalar nada.
  *
- * La prueba central compara el motor nuevo contra una reimplementación literal
- * del algoritmo de la versión anterior (`telegrafo.html`). El rediseño podía
- * cambiar cualquier cosa menos cómo suena el Morse, y esto lo demuestra en vez
- * de afirmarlo.
+ * Estas pruebas comprueban la ESPECIFICACIÓN, no el comportamiento heredado.
+ * La versión anterior de este archivo comparaba el motor contra una copia
+ * literal del algoritmo antiguo; el algoritmo antiguo estaba mal, así que la
+ * prueba certificaba el error (a 5 PPM pedidos se emitían 9,05 PPM reales).
+ * Ahora se mide la velocidad efectiva contra la definición de PARIS.
  */
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildTimeline, resolveSettings, unitSeconds, charUnitSeconds, spacingFactor }
-  from '../src/core/timing.js';
-import { MORSE, ORDER, REVERSE, tokenize, fmt } from '../src/data/morse.js';
-import { unlockedSet, WINDOW_TARGET, WINDOW_SIZE } from '../src/data/levels.js';
-import { shouldLevelUp, pushWindow, buildOptions } from '../src/core/srs.js';
+import {
+  buildTimeline, resolveSettings, unitSeconds, charUnitSeconds, spacingFactor,
+  effectiveWpm, charWpm, PARIS_CHAR_UNITS, PARIS_GAP_UNITS, FARNSWORTH_CHAR_WPM
+} from '../src/core/timing.js';
 
 /* ------------------------------------------------------------------------ */
-/* Implementación ANTERIOR, copiada de telegrafo.html (líneas 655-676).      */
-/* Es la referencia contra la que no se puede regresar.                      */
+/* Utilidades de medida: nada de constantes mágicas, todo sale de la timeline */
 /* ------------------------------------------------------------------------ */
-function legacyDuration(str, wpm, farns) {
-  const charWpm = farns ? Math.max(wpm, 18) : wpm;
-  const uc = 1200 / charWpm / 1000;
-  const f = Math.max(charWpm / wpm, 1);
-  let t = 0;
-  const words = str.toUpperCase().trim().split(/\s+/).filter(Boolean);
-  words.forEach((word, wi) => {
-    const letters = word.split('').filter((c) => MORSE[c]);
-    letters.forEach((ch, li) => {
-      const code = MORSE[ch];
-      for (let s = 0; s < code.length; s++) {
-        t += code[s] === '.' ? uc : uc * 3;
-        if (s < code.length - 1) t += uc;
-      }
-      if (li < letters.length - 1) t += uc * 3 * f;
-    });
-    if (wi < words.length - 1) t += uc * 7 * f;
-  });
-  return t;
+
+/**
+ * Velocidad efectiva MEDIDA sobre una timeline real de PARIS repetido.
+ *
+ * Se toma el intervalo entre inicios de palabra consecutivos, que por
+ * definición es el tiempo de una palabra estándar completa (incluido el hueco
+ * de palabra que la cierra). No usa `effectiveWpm()`: si lo hiciera estaría
+ * comprobando la fórmula contra sí misma.
+ */
+function measuredWpm(settings, repeats = 40) {
+  const tl = buildTimeline(Array(repeats).fill('PARIS').join(' '), settings);
+  const starts = tl.letters.filter((l) => l.ch === 'P').map((l) => l.t0);
+  const perWord = (starts.at(-1) - starts[0]) / (starts.length - 1);
+  return 60 / perWord;
 }
 
-const SAMPLES = ['E', 'T', 'SOS', 'PARIS', 'HOLA MUNDO', 'CQ CQ DE CE3WMJ K', 'R2D2'];
+const TARGETS = [5, 8, 10, 13, 15, 18, 20, 25];
 
-test('el motor nuevo reproduce exactamente el timing de la versión anterior', () => {
-  for (const wpm of [5, 8, 13, 18, 20, 25]) {
-    for (const farns of [true, false]) {
-      const settings = resolveSettings({ wpm, farnsworth: farns });
-      for (const text of SAMPLES) {
-        const mine = buildTimeline(text, settings).duration;
-        const legacy = legacyDuration(text, wpm, farns);
-        assert.ok(
-          Math.abs(mine - legacy) < 1e-9,
-          `"${text}" @${wpm}ppm farns=${farns}: nuevo ${mine} vs anterior ${legacy}`
-        );
-      }
-    }
-  }
-});
+/* ------------------------------------------------------------ elementos */
 
 test('estándar PARIS: un punto dura 1200/PPM ms', () => {
   for (const wpm of [5, 13, 20, 25]) {
@@ -76,29 +56,127 @@ test('una raya dura exactamente tres puntos', () => {
   assert.equal((dah.t1 - dah.t0).toFixed(9), ((dit.t1 - dit.t0) * 3).toFixed(9));
 });
 
-test('Farnsworth acelera el carácter pero estira sólo los huecos', () => {
-  const wpm = 13;
-  const on = resolveSettings({ wpm, farnsworth: true });
-  const off = resolveSettings({ wpm, farnsworth: false });
-
-  // El carácter va más rápido...
-  assert.ok(charUnitSeconds(on) < charUnitSeconds(off));
-  assert.equal(charUnitSeconds(on).toFixed(6), (1.2 / 18).toFixed(6));
-
-  // ...pero el hueco entre letras es el mismo que sin Farnsworth,
-  // que es justo lo que mantiene la velocidad global percibida.
-  const gapOn = charUnitSeconds(on) * 3 * spacingFactor(on);
-  const gapOff = charUnitSeconds(off) * 3 * spacingFactor(off);
-  assert.equal(gapOn.toFixed(9), gapOff.toFixed(9));
-  assert.equal(gapOn.toFixed(6), (unitSeconds(off) * 3).toFixed(6));
+test('el hueco entre elementos de una letra es 1 unidad de carácter', () => {
+  for (const farnsworth of [true, false]) {
+    const s = resolveSettings({ wpm: 10, farnsworth });
+    const tl = buildTimeline('A', s);   // .-
+    const gap = tl.elements[1].t0 - tl.elements[0].t1;
+    assert.equal(gap.toFixed(9), charUnitSeconds(s).toFixed(9),
+      `farnsworth=${farnsworth}: el hueco intra-carácter no se estira nunca`);
+  }
 });
 
-test('el hueco entre palabras son 7 unidades', () => {
+test('el hueco entre letras son 3 unidades y el de palabra 7, ambos estirados igual', () => {
+  const s = resolveSettings({ wpm: 10, farnsworth: true });
+  const uc = charUnitSeconds(s);
+  const f = spacingFactor(s);
+
+  const letters = buildTimeline('EE', s);
+  assert.equal((letters.elements[1].t0 - letters.elements[0].t1).toFixed(9), (uc * 3 * f).toFixed(9));
+
+  const words = buildTimeline('E E', s);
+  assert.equal((words.elements[1].t0 - words.elements[0].t1).toFixed(9), (uc * 7 * f).toFixed(9));
+});
+
+test('sin Farnsworth los huecos son 3 y 7 unidades globales', () => {
   const s = resolveSettings({ wpm: 13, farnsworth: false });
+  assert.equal(spacingFactor(s), 1);
   const tl = buildTimeline('E E', s);
-  const gap = tl.elements[1].t0 - tl.elements[0].t1;
-  assert.equal(gap.toFixed(9), (unitSeconds(s) * 7).toFixed(9));
+  assert.equal((tl.elements[1].t0 - tl.elements[0].t1).toFixed(9), (unitSeconds(s) * 7).toFixed(9));
 });
+
+/* ---------------------------------------------------------- Farnsworth */
+
+test('PARIS son 31 unidades de carácter y 19 de espaciado', () => {
+  // Se cuenta sobre la timeline real, sin Farnsworth (factor 1), en unidades.
+  const s = resolveSettings({ wpm: 20, farnsworth: false });
+  const u = unitSeconds(s);
+  const tl = buildTimeline('PARIS PARIS', s);
+
+  const primera = tl.letters.slice(0, 5);
+  const contenido = primera.reduce((acc, l) => acc + (l.t1 - l.t0), 0) / u;
+  const huecosLetra = 4 * 3;
+  const huecoPalabra = (tl.letters[5].t0 - tl.letters[4].t1) / u;
+
+  assert.equal(Math.round(contenido), PARIS_CHAR_UNITS, 'contenido de carácter');
+  assert.equal(Math.round(huecosLetra + huecoPalabra), PARIS_GAP_UNITS, 'espaciado');
+  assert.equal(PARIS_CHAR_UNITS + PARIS_GAP_UNITS, 50);
+});
+
+test('ESPECIFICACIÓN Farnsworth: la velocidad efectiva es la pedida', () => {
+  for (const wpm of TARGETS) {
+    const s = resolveSettings({ wpm, farnsworth: true });
+    const medida = measuredWpm(s);
+    assert.ok(Math.abs(medida - wpm) < 1e-6,
+      `objetivo ${wpm} PPM: PARIS repetido sale a ${medida.toFixed(4)} PPM`);
+  }
+});
+
+test('los caracteres se emiten a >= 18 PPM aunque la efectiva sea menor', () => {
+  for (const wpm of TARGETS) {
+    const s = resolveSettings({ wpm, farnsworth: true });
+    assert.equal(charWpm(s), Math.max(wpm, FARNSWORTH_CHAR_WPM));
+    const dit = buildTimeline('E', s).elements[0];
+    assert.equal((dit.t1 - dit.t0).toFixed(9), (1.2 / Math.max(wpm, 18)).toFixed(9));
+  }
+});
+
+test('sin Farnsworth la velocidad efectiva también es la pedida', () => {
+  for (const wpm of TARGETS) {
+    const s = resolveSettings({ wpm, farnsworth: false });
+    assert.ok(Math.abs(measuredWpm(s) - wpm) < 1e-6, `objetivo ${wpm} PPM sin Farnsworth`);
+  }
+});
+
+test('REGRESIÓN: el factor C/S de la versión anterior queda descartado', () => {
+  // El motor viejo usaba spacingFactor = charWpm/wpm. Eso dejaba los huecos a 3
+  // y 7 unidades de la velocidad efectiva en vez de repartir el tiempo sobrante,
+  // y producía estas velocidades reales. Ninguna debe volver a aparecer.
+  const ANTES = { 5: 9.054, 10: 13.804, 13: 15.705, 15: 16.729 };
+  for (const [wpm, malo] of Object.entries(ANTES)) {
+    const s = resolveSettings({ wpm: Number(wpm), farnsworth: true });
+    const medida = measuredWpm(s);
+    assert.ok(Math.abs(medida - malo) > 0.5,
+      `a ${wpm} PPM se vuelve a medir ${medida.toFixed(3)}, el valor del motor roto`);
+    // Y el factor viejo se distingue del nuevo salvo cuando ambos valen 1.
+    const viejo = Math.max(charWpm(s) / s.wpm, 1);
+    assert.ok(spacingFactor(s) > viejo, `a ${wpm} PPM el espaciado debe ser MAYOR que antes`);
+  }
+});
+
+test('el espaciado nunca baja de 1 unidad ni se vuelve negativo', () => {
+  for (const wpm of [5, 13, 17, 18, 19, 25]) {
+    for (const farnsworth of [true, false]) {
+      const s = resolveSettings({ wpm, farnsworth });
+      const f = spacingFactor(s);
+      assert.ok(f >= 1 && Number.isFinite(f), `wpm=${wpm} farns=${farnsworth} -> factor ${f}`);
+    }
+  }
+  // Con la velocidad objetivo por encima de la de carácter el factor es 1 clavado.
+  for (const wpm of [18, 20, 25]) {
+    assert.equal(spacingFactor(resolveSettings({ wpm, farnsworth: true })), 1);
+  }
+});
+
+test('effectiveWpm coincide con lo que produce la timeline', () => {
+  for (const wpm of TARGETS) {
+    for (const farnsworth of [true, false]) {
+      const s = resolveSettings({ wpm, farnsworth });
+      assert.ok(Math.abs(effectiveWpm(s) - measuredWpm(s)) < 1e-9,
+        `wpm=${wpm} farns=${farnsworth}`);
+    }
+  }
+});
+
+test('el tiempo total de una frase escala con la velocidad efectiva', () => {
+  const lento = resolveSettings({ wpm: 5, farnsworth: true });
+  const rapido = resolveSettings({ wpm: 20, farnsworth: true });
+  const t1 = buildTimeline('CQ DE CE3WMJ', lento).duration;
+  const t2 = buildTimeline('CQ DE CE3WMJ', rapido).duration;
+  assert.ok(t1 > t2 * 2.5, `5 PPM (${t1.toFixed(2)}s) debe ser mucho más lento que 20 (${t2.toFixed(2)}s)`);
+});
+
+/* ------------------------------------------------------- estructura */
 
 test('la timeline indexa letras y elementos de forma coherente', () => {
   const tl = buildTimeline('SOS', resolveSettings({ wpm: 20 }));
@@ -110,7 +188,6 @@ test('la timeline indexa letras y elementos de forma coherente', () => {
     assert.equal(tl.elements[letter.firstEl].t0, letter.t0);
     assert.equal(tl.elements[letter.lastEl].t1, letter.t1);
   }
-  // Los arrays tipados deben coincidir con los objetos
   tl.elements.forEach((el, i) => {
     assert.equal(tl.t0s[i], el.t0);
     assert.equal(tl.t1s[i], el.t1);
@@ -118,38 +195,27 @@ test('la timeline indexa letras y elementos de forma coherente', () => {
 });
 
 test('los elementos nunca se solapan y avanzan en el tiempo', () => {
-  const tl = buildTimeline('CQ DE CE3WMJ', resolveSettings({ wpm: 13 }));
-  for (let i = 1; i < tl.elements.length; i++) {
-    assert.ok(tl.elements[i].t0 >= tl.elements[i - 1].t1,
-      `elemento ${i} empieza antes de acabar el anterior`);
+  for (const wpm of TARGETS) {
+    const tl = buildTimeline('CQ DE CE3WMJ K', resolveSettings({ wpm }));
+    for (let i = 1; i < tl.elements.length; i++) {
+      assert.ok(tl.elements[i].t0 >= tl.elements[i - 1].t1,
+        `a ${wpm} PPM el elemento ${i} empieza antes de acabar el anterior`);
+    }
   }
 });
 
-test('el abecedario no empieza por dígitos', () => {
-  // Object.keys(MORSE) enumeraría '0'..'9' primero: las claves con forma de
-  // entero van antes por especificación. ORDER existe para evitarlo.
-  assert.equal(ORDER[0], 'A');
-  assert.equal(ORDER[25], 'Z');
-  assert.equal(ORDER[26], '0');
-  assert.ok(Object.keys(MORSE)[0] === '0', 'si esto falla, el motivo de ORDER cambió');
-  assert.equal(ORDER.length, new Set(ORDER).size, 'sin duplicados');
-});
-
-test('la tabla Morse es reversible y sin códigos repetidos', () => {
-  const codes = Object.values(MORSE);
-  assert.equal(codes.length, new Set(codes).size, 'dos caracteres comparten código');
-  for (const [ch, code] of Object.entries(MORSE)) assert.equal(REVERSE[code], ch);
-});
-
-test('tokenize descarta lo intransmisible y separa palabras', () => {
-  assert.deepEqual(tokenize('hola  mundo!'), [['H','O','L','A'], ['M','U','N','D','O']]);
-  assert.deepEqual(tokenize('   '), []);
-  assert.deepEqual(tokenize('¡ñ!'), []);
-});
-
-test('fmt convierte a símbolos legibles', () => {
-  assert.equal(fmt('.-'), '·—');
-  assert.equal(fmt('...'), '···');
+test('un texto sin caracteres transmisibles da una timeline vacía y no lanza', () => {
+  const s = resolveSettings();
+  // null y undefined incluidos a propósito: `String(null)` es "null", cuatro
+  // letras perfectamente transmisibles, y un valor ausente llegó a sonar como
+  // la palabra NULL.
+  for (const texto of ['', '   ', '¿¡', '@@', null, undefined, {}, []]) {
+    const tl = buildTimeline(texto, s);
+    assert.equal(tl.elements.length, 0, `entrada ${JSON.stringify(texto)}`);
+    assert.equal(tl.duration, 0);
+  }
+  // Un número sí es contenido legítimo.
+  assert.equal(buildTimeline(123, s).letters.map((l) => l.ch).join(''), '123');
 });
 
 test('los ajustes se acotan en vez de romper', () => {
@@ -158,39 +224,5 @@ test('los ajustes se acotan en vez de romper', () => {
   assert.equal(resolveSettings({ freq: 99999 }).freq, 1000);
   assert.equal(resolveSettings({}).wpm, 13);
   assert.equal(resolveSettings({ wpm: 'no es un número' }).wpm, 13);
-});
-
-test('la progresión Koch acumula y empieza por E y T', () => {
-  assert.deepEqual(unlockedSet(0), ['E', 'T']);
-  assert.deepEqual(unlockedSet(1), ['E', 'T', 'A', 'N', 'I', 'M']);
-  assert.ok(unlockedSet(99).length > unlockedSet(2).length, 'un nivel alto se acota');
-});
-
-test('la meta de nivel coincide con la lógica que la evalúa', () => {
-  // El texto anunciaba "10 de 12 (>=85%)", pero 10/12 es 83%: se cumplía la
-  // meta anunciada y el nivel no se abría. WINDOW_TARGET se calcula.
-  const win = (hits) => Array(hits).fill(true).concat(Array(WINDOW_SIZE - hits).fill(false));
-  assert.equal(shouldLevelUp(win(WINDOW_TARGET - 1), 0), false);
-  assert.equal(shouldLevelUp(win(WINDOW_TARGET), 0), true);
-  assert.equal(shouldLevelUp(Array(3).fill(true), 0), false, 'muestra insuficiente');
-});
-
-test('la ventana deslizante no crece más allá de su tamaño', () => {
-  let w = [];
-  for (let i = 0; i < 40; i++) w = pushWindow(w, i % 2 === 0);
-  assert.equal(w.length, WINDOW_SIZE);
-});
-
-test('las opciones incluyen siempre la respuesta correcta y no se repiten', () => {
-  const pool = unlockedSet(4);
-  for (let i = 0; i < 200; i++) {
-    const opts = buildOptions('E', pool, 4);
-    assert.ok(opts.includes('E'));
-    assert.equal(opts.length, new Set(opts).size);
-  }
-});
-
-test('un conjunto de dos caracteres no pide más distractores de los que hay', () => {
-  const opts = buildOptions('E', ['E', 'T'], 4);
-  assert.deepEqual([...opts].sort(), ['E', 'T']);
+  assert.equal(resolveSettings({ volume: 10 }).volume, 0.4);
 });

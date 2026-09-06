@@ -29,10 +29,22 @@ export function createScope() {
       return disposable;
     },
 
-    /** setTimeout con limpieza automática. */
+    /**
+     * setTimeout con limpieza automática.
+     *
+     * El disposer se retira al cumplirse el plazo: sin eso, una vista de larga
+     * duración como Modo libre —donde cada letra decodificada programa un
+     * destello— acumulaba un closure por temporizador hasta desmontarse.
+     */
     timeout(fn, ms) {
-      const id = setTimeout(fn, ms);
-      disposers.push(() => clearTimeout(id));
+      let disposer;
+      const id = setTimeout(() => {
+        const i = disposers.indexOf(disposer);
+        if (i >= 0) disposers.splice(i, 1);
+        fn();
+      }, ms);
+      disposer = () => clearTimeout(id);
+      disposers.push(disposer);
       return id;
     },
 

@@ -39,7 +39,6 @@ let buffer = '';
 let letterTimer = 0;
 let wordTimer = 0;
 
-export const getBuffer = () => buffer;
 export const isKeying = () => isDown;
 
 export function configure(partial) {

@@ -27,7 +27,11 @@ export const DEFAULT_PROGRESS = Object.freeze({
   sessions: 0
 });
 
-export const DEFAULT_PREFS = Object.freeze({ haptics: true });
+export const DEFAULT_PREFS = Object.freeze({
+  haptics: true,
+  /** Se ha visto la presentación de E y T al empezar la primera sesión. */
+  introDone: false
+});
 
 let available = true;
 let data = { settings: {}, progress: {}, prefs: {} };
@@ -52,7 +56,8 @@ function migrateV1(v1) {
       volume: typeof s.vol === 'number' ? s.vol / 100 : DEFAULT_SETTINGS.volume,
       farnsworth: s.farns ?? DEFAULT_SETTINGS.farnsworth
     },
-    prefs: { haptics: s.vib ?? true },
+    // Quien viene de v1 ya ha usado la aplicación: no se le presenta E y T.
+    prefs: { haptics: s.vib ?? true, introDone: true },
     progress: {
       level: p.level ?? 0,
       correct: p.totalCorrect ?? 0,
@@ -131,8 +136,18 @@ export function setPrefs(patch) {
 
 /* ------------------------------------------------------------- progreso */
 
+/**
+ * Copia del progreso.
+ *
+ * La copia superficial no bastaba: `letter` y `window` salían por REFERENCIA,
+ * así que quien tocara el objeto devuelto mutaba el estado guardado sin pasar
+ * por `setProgress()` y sin que se escribiera nada en disco.
+ */
 export function getProgress() {
-  return { ...DEFAULT_PROGRESS, ...data.progress };
+  const p = { ...DEFAULT_PROGRESS, ...data.progress };
+  p.letter = { ...p.letter };
+  p.window = [...(p.window ?? [])];
+  return p;
 }
 export function setProgress(patch) {
   data.progress = { ...getProgress(), ...patch };

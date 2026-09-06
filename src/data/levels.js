@@ -37,18 +37,31 @@ export const WINDOW_MIN = 10;
 export const WINDOW_ACCURACY = 0.85;
 
 /**
- * Aciertos necesarios sobre la ventana llena.
+ * Aciertos necesarios sobre una ventana de `size` respuestas.
  *
- * Se calcula, no se escribe a mano. La versión anterior rotulaba "acierta 10
- * de los últimos 12 (≥85%)", pero 10/12 es 83%: con ese texto el usuario
- * cumplía la meta anunciada y el nivel no se abría nunca.
+ * Para enteros, `hits >= ceil(size * A)` es EXACTAMENTE equivalente a
+ * `hits / size >= A`, que es la condición que evalúa `shouldLevelUp`. Por eso
+ * el texto y la lógica no pueden separarse: son la misma expresión.
+ *
+ * Se calcula, no se escribe a mano. Una versión anterior rotulaba "acierta 10
+ * de los últimos 12 (>=85%)", pero 10/12 es 83%: el usuario cumplía la meta
+ * anunciada y el nivel no se abría nunca.
  */
-export const WINDOW_TARGET = Math.ceil(WINDOW_SIZE * WINDOW_ACCURACY);   // 11
+export const targetFor = (size) => Math.ceil(size * WINDOW_ACCURACY);
+
+/**
+ * Tamaño de ventana que se anuncia. Antes de tener WINDOW_MIN respuestas la
+ * promoción no puede ocurrir aunque el porcentaje dé, así que la meta se
+ * enuncia sobre ese mínimo.
+ */
+export const goalSize = (recentLength) => Math.max(recentLength, WINDOW_MIN);
 
 /** Texto de meta derivado de la lógica real, nunca de una constante escrita a mano. */
-export function levelGoalText(level, hits, total) {
+export function levelGoalText(level, recent = []) {
+  const hits = recent.filter(Boolean).length;
   if (level >= MAX_LEVEL) {
-    return `Último nivel: ya tienes todo el set. Vas ${hits}/${total}.`;
+    return `Último nivel: ya tienes todo el set. Vas ${hits}/${recent.length}.`;
   }
-  return `Acierta ${WINDOW_TARGET} de los últimos ${WINDOW_SIZE} para abrir el nivel ${level + 2}. Vas ${hits}/${total}.`;
+  const size = goalSize(recent.length);
+  return `Acierta ${targetFor(size)} de tus últimas ${size} para abrir el nivel ${level + 2}. Vas ${hits}/${recent.length}.`;
 }

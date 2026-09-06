@@ -17,6 +17,11 @@
  * entre letras y palabras se estiran para que la velocidad global percibida
  * siga siendo la pedida. Se aprende el ritmo real de cada letra desde el
  * principio, con tiempo para procesarla.
+ *
+ * De esas 50 unidades de PARIS, 31 son contenido de carácter (elementos y
+ * huecos intra-carácter) y 19 son espaciado estirable (4 huecos de letra de 3
+ * unidades + 1 hueco de palabra de 7). Sólo esas 19 se alargan. Ver
+ * `spacingFactor` para la derivación.
  */
 
 import { MORSE, tokenize } from '../data/morse.js';
@@ -40,15 +45,19 @@ export const LIMITS = Object.freeze({
 export const FARNSWORTH_CHAR_WPM = 18;
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+/** Número utilizable o el respaldo. Cubre NaN, null, undefined y cadenas. */
+const finite = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
 
 /** Completa y acota unos settings parciales. Nunca lanza. */
 export function resolveSettings(partial = {}) {
   const s = { ...DEFAULT_SETTINGS, ...partial };
   return {
-    wpm: clamp(Number(s.wpm) || DEFAULT_SETTINGS.wpm, LIMITS.wpm.min, LIMITS.wpm.max),
-    freq: clamp(Number(s.freq) || DEFAULT_SETTINGS.freq, LIMITS.freq.min, LIMITS.freq.max),
+    wpm: clamp(finite(s.wpm, DEFAULT_SETTINGS.wpm), LIMITS.wpm.min, LIMITS.wpm.max),
+    freq: clamp(finite(s.freq, DEFAULT_SETTINGS.freq), LIMITS.freq.min, LIMITS.freq.max),
     farnsworth: Boolean(s.farnsworth),
-    volume: clamp(Number(s.volume) ?? DEFAULT_SETTINGS.volume, LIMITS.volume.min, LIMITS.volume.max)
+    // `Number(x) ?? def` NO protege de nada: Number('abc') es NaN, no undefined,
+    // y clamp(NaN) devuelve NaN. Un volumen NaN deja la aplicación muda.
+    volume: clamp(finite(s.volume, DEFAULT_SETTINGS.volume), LIMITS.volume.min, LIMITS.volume.max)
   };
 }
 
@@ -69,16 +78,56 @@ export function charUnitSeconds(settings) {
   return 1.2 / charWpm(settings);
 }
 
-/** Factor de estirado de los huecos. 1 cuando no hay Farnsworth. */
+/** Unidades de PARIS que son contenido de carácter (elementos + huecos intra). */
+export const PARIS_CHAR_UNITS = 31;
+/** Unidades de PARIS que son espaciado estirable (4x3 entre letras + 7 de palabra). */
+export const PARIS_GAP_UNITS = 19;
+
+/**
+ * Factor de estirado de los huecos, en unidades de carácter. 1 sin Farnsworth.
+ *
+ * Derivación (estándar ARRL, "A Standard for Morse Timing Using the Farnsworth
+ * Technique"). Con velocidad de carácter C y velocidad efectiva S, una palabra
+ * estándar debe durar 60/S segundos. El contenido de carácter ya consume
+ * 31 * (1.2/C). Lo que queda se reparte entre las 19 unidades de espaciado:
+ *
+ *   ta = 60/S - 37.2/C           (segundos de espaciado por palabra estándar)
+ *   hueco de una unidad = ta/19
+ *   F = (ta/19) / (1.2/C) = (50*C/S - 31) / 19
+ *
+ * Con C = S da exactamente 1, así que la misma expresión sirve con Farnsworth
+ * apagado. Nunca baja de 1: el espaciado ITU es el suelo, no el techo.
+ *
+ * La versión anterior usaba `C/S`, que deja los huecos a 3 y 7 unidades de la
+ * velocidad EFECTIVA en vez de repartir el tiempo sobrante. Resultado: a 5 PPM
+ * pedidos se emitían 9,05 PPM reales. Ver tests/timing.test.js.
+ */
 export function spacingFactor(settings) {
-  return Math.max(charWpm(settings) / settings.wpm, 1);
+  const c = charWpm(settings);
+  const s = settings.wpm;
+  const f = ((50 * c) / s - PARIS_CHAR_UNITS) / PARIS_GAP_UNITS;
+  return Number.isFinite(f) ? Math.max(f, 1) : 1;
+}
+
+/**
+ * Velocidad efectiva real de unos ajustes, en PPM.
+ *
+ * Se calcula desde la misma aritmética que produce la timeline, así que si el
+ * motor cambia, este número cambia con él. Existe para poder afirmarlo en los
+ * tests en vez de suponerlo.
+ */
+export function effectiveWpm(settings) {
+  const uc = charUnitSeconds(settings);
+  const gap = spacingFactor(settings);
+  const parisSeconds = PARIS_CHAR_UNITS * uc + PARIS_GAP_UNITS * uc * gap;
+  return 60 / parisSeconds;
 }
 
 /**
  * @typedef {{kind:'dit'|'dah', t0:number, t1:number, letterIndex:number, symIndex:number}} MorseElement
  * @typedef {{ch:string, code:string, t0:number, t1:number, firstEl:number, lastEl:number}} MorseLetter
  * @typedef {{elements:MorseElement[], letters:MorseLetter[], duration:number,
- *            t0s:Float64Array, t1s:Float64Array, settings:Settings, text:string}} Timeline
+ *            t0s:Float64Array, t1s:Float64Array, settings:Settings}} Timeline
  */
 
 /**
@@ -139,16 +188,6 @@ export function buildTimeline(text, settings) {
   const t1s = new Float64Array(n);
   for (let i = 0; i < n; i++) { t0s[i] = elements[i].t0; t1s[i] = elements[i].t1; }
 
-  return { elements, letters, duration: t, t0s, t1s, settings, text: String(text) };
+  return { elements, letters, duration: t, t0s, t1s, settings };
 }
 
-/** Timeline de un único código ('.-'), para el abecedario. */
-export function timelineForCode(code, settings) {
-  const ch = Object.keys(MORSE).find((k) => MORSE[k] === code);
-  return buildTimeline(ch ?? '', settings);
-}
-
-/** Duración total de un texto sin construir la timeline entera. */
-export function durationOf(text, settings) {
-  return buildTimeline(text, settings).duration;
-}

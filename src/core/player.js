@@ -2,8 +2,9 @@
  * Reproducción de texto en Morse. Sin DOM.
  *
  * `playText` NO acepta callbacks ni devuelve una duración: devuelve un handle
- * `Playback` con la timeline dentro. Quien quiera reaccionar al sonido se
- * suscribe a `core/signal.js`, que muestrea contra el reloj de audio.
+ * `Playback` con la timeline dentro. Quien quiera reaccionar al sonido lee
+ * `core/signal.js` a través del bucle de frames, que muestrea contra el reloj
+ * de audio; y quien necesite saber cuándo acaba espera a `pb.finished`.
  *
  * Los settings se pasan explícitamente en cada llamada. El código anterior
  * mutaba el estado global para conseguirlo (`const s=S.wpm; S.wpm=X; ...`),
@@ -37,17 +38,6 @@ let nextId = 1;
 /** @type {Playback|null} */
 let currentPlayback = null;
 
-const listeners = new Set();
-
-/** Suscribirse a eventos de reproducción: 'start' | 'end' | 'needsgesture'. */
-export function onPlayerEvent(fn) {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-}
-function emit(type, detail) {
-  for (const fn of listeners) { try { fn(type, detail); } catch { /* aislado */ } }
-}
-
 export const current = () => currentPlayback;
 
 /** Detiene lo que esté sonando. */
@@ -73,9 +63,7 @@ export function playText(text, partialSettings) {
   // indistinguible de un cuelgue. Mejor decirlo.
   if (!audio.isRunning()) {
     audio.resume();
-    const blocked = makeBlocked(timeline);
-    emit('needsgesture', { playback: blocked });
-    return blocked;
+    return makeBlocked(timeline);
   }
 
   if (timeline.elements.length === 0) return makeBlocked(timeline, 'ended');
@@ -100,7 +88,6 @@ export function playText(text, partialSettings) {
       pb.state = 'stopped';
       handle.stop();
       if (currentPlayback === pb) currentPlayback = null;
-      emit('end', { playback: pb, reason: 'stopped' });
       settle('stopped');
     },
     /** Índice del elemento sonando en `t` (tiempo de audio), o -1. */
@@ -128,20 +115,13 @@ export function playText(text, partialSettings) {
     if (pb.state === 'stopped') return;
     pb.state = 'ended';
     if (currentPlayback === pb) currentPlayback = null;
-    emit('end', { playback: pb, reason: 'ended' });
     settle('ended');
   });
 
   currentPlayback = pb;
   pb.state = 'playing';
-  emit('start', { playback: pb });
   pulse();   // arranca el bucle visual aunque estuviera dormido
   return pb;
-}
-
-/** Reproduce el código de un solo carácter respetando los mismos settings. */
-export function playChar(ch, partialSettings) {
-  return playText(ch, partialSettings);
 }
 
 function makeBlocked(timeline, state = 'blocked') {

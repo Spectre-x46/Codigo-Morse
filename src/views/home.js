@@ -17,7 +17,7 @@ import { MorseGlyph } from '../ui/morse-glyph.js';
 import { Waveform } from '../ui/waveform.js';
 import { SignalLine } from '../ui/signal-line.js';
 import { observeReveals, trackProgress } from '../ui/reveal.js';
-import { MORSE, fmt } from '../data/morse.js';
+import { MORSE } from '../data/morse.js';
 
 const DEMO_POOL = ['E', 'T', 'A', 'N', 'I', 'M'];
 
@@ -178,6 +178,7 @@ export function mount(root, scope) {
 
   scope.on(heroKey, 'click', async () => {
     await audio.resume();
+    if (scope.disposed) return;   // se cambió de ruta durante el await
     player.playText('E', store.getSettings());   // un punto real, con el motor real
   });
 
@@ -254,6 +255,7 @@ export function mount(root, scope) {
 
   async function play() {
     await audio.resume();
+    if (scope.disposed) return;
     answer = DEMO_POOL[Math.floor(Math.random() * DEMO_POOL.length)];
 
     // Durante la reproducción las opciones están visibles pero quietas: no se

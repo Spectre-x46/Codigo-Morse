@@ -40,13 +40,6 @@ export function currentRoute() {
   return raw.startsWith('/') ? raw : `/${raw}`;
 }
 
-export function navigate(path, { replace = false } = {}) {
-  const target = `#${path}`;
-  if (location.hash === target) { render(); return; }
-  if (replace) history.replaceState(null, '', target);
-  else location.hash = target;
-}
-
 /* Token de navegación: si el usuario pulsa atrás mientras se está haciendo la
    transición de salida, la navegación vieja se descarta en vez de montar una
    vista que ya no corresponde. */
@@ -105,5 +98,3 @@ export function start(outletEl, { fallbackPath = '/' } = {}) {
   window.addEventListener('hashchange', render);
   render();
 }
-
-export const activePath = () => currentPath;

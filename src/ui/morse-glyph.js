@@ -11,11 +11,14 @@ import * as frameLoop from './frame-loop.js';
 
 /**
  * @param {HTMLElement} host
- * @param {{code?:string, size?:'md'|'lg'}} [opts]
+ * @param {{code?:string, size?:'md'|'lg'|'xl'}} [opts]
  */
 export function MorseGlyph(host, { code = '', size = 'md' } = {}) {
   host.classList.add('glyph');
-  if (size === 'lg') host.classList.add('glyph--lg');
+  // 'xl' existía en el CSS y en las llamadas, pero aquí sólo se contemplaba
+  // 'lg' y se descartaba sin avisar: funcionaba de casualidad, porque la clase
+  // ya venía puesta en el HTML de la vista.
+  if (size === 'lg' || size === 'xl') host.classList.add(`glyph--${size}`);
   host.setAttribute('aria-hidden', 'true');
 
   /** @type {HTMLElement[]} */

@@ -11,13 +11,6 @@ const query = matchMedia('(prefers-reduced-motion: reduce)');
 
 export const prefersReduced = () => query.matches;
 
-/** Notifica cambios en vivo (el usuario puede activarlo sin recargar). */
-export function onMotionChange(fn) {
-  const handler = () => fn(query.matches);
-  query.addEventListener('change', handler);
-  return () => query.removeEventListener('change', handler);
-}
-
 /** Aplica el atributo raíz que consume el CSS. */
 export function syncDocument() {
   const apply = () => {

@@ -1,5 +1,5 @@
 /**
- * Selección adaptativa de ítems. Sin DOM.
+ * Selección adaptativa de ítems por debilidad. Sin DOM.
  *
  * En la versión anterior esto era una pestaña llamada "Recuperar" que el
  * usuario tenía que elegir. Ahora es invisible: Aprender siempre insiste en
@@ -8,6 +8,12 @@
  * El peso de un carácter sube cuando se falla y cuando apenas se ha visto,
  * así que los recién desbloqueados salen pronto y los ya dominados se
  * espacian solos.
+ *
+ * **Esto NO es repetición espaciada.** El archivo se llamaba `srs.js`, que
+ * anuncia un sistema que aquí no existe: no hay marcas de tiempo, ni
+ * intervalos, ni fechas de próxima revisión. Es muestreo ponderado por
+ * precisión — un carácter flojo sale más a menudo dentro de la misma sesión,
+ * y nada más. El nombre ahora dice lo que hace.
  */
 
 import { letterStat } from './store.js';
@@ -48,16 +54,6 @@ export function pickWeighted(pool, avoid) {
     if (r <= 0) return candidates[i];
   }
   return candidates[candidates.length - 1];
-}
-
-/** Los `n` caracteres más flojos del conjunto (sólo los ya practicados). */
-export function weakest(pool, n = 3) {
-  return pool
-    .map((ch) => ({ ch, ...letterStat(ch) }))
-    .filter((x) => x.t > 0)
-    .sort((a, b) => (a.c / a.t) - (b.c / b.t))
-    .slice(0, n)
-    .map((x) => x.ch);
 }
 
 /** Elección uniforme. */

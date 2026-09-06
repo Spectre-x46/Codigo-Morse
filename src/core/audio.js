@@ -74,7 +74,6 @@ export async function resume() {
 }
 
 export const isRunning = () => ctx?.state === 'running';
-export const hasContext = () => ctx !== null;
 
 /** Reloj del contexto: instante del último bloque renderizado. */
 export const now = () => (ctx ? ctx.currentTime : 0);
@@ -105,7 +104,6 @@ export function setVolume(v) {
     busGain.gain.linearRampToValueAtTime(volume, t + 0.02);
   }
 }
-export const getVolume = () => volume;
 
 /* ---------------------------------------------------------------- llave viva */
 

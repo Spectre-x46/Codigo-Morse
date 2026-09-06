@@ -5,8 +5,13 @@
  * velocidad, tono ni espaciado Farnsworth antes de oír su primera letra. Viven
  * aquí, a un clic, para quien los busque.
  *
- * Gestión de foco completa: se atrapa el tabulador dentro del panel mientras
- * está abierto y se devuelve el foco al botón que lo abrió al cerrar.
+ * Gestión de foco completa: mientras está abierto el resto de la página queda
+ * `inert` (fuera del tabulador Y del árbol de accesibilidad, que es lo que
+ * `aria-modal` promete y por sí solo no cumple), el tabulador se atrapa dentro
+ * del panel, y al cerrar el foco vuelve a donde estaba.
+ *
+ * Cerrado, el panel también es `inert`: con sólo `opacity: 0` sus cinco
+ * controles seguían siendo tabulables desde el resto de la página.
  */
 
 import * as store from '../core/store.js';
@@ -17,10 +22,48 @@ import { toast } from './toast.js';
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])';
 
+/* El deslizador va de 0 a 100; el rango útil de ganancia acaba en
+   LIMITS.volume.max (por encima satura sin sonar más alto). Las dos
+   conversiones salen de la misma constante: escritas a mano se desincronizaban
+   en cuanto el límite cambiase. */
+const volToPct = (v) => Math.round((v / LIMITS.volume.max) * 100);
+const pctToVol = (p) => (p / 100) * LIMITS.volume.max;
+
 let el = null;
 let panel = null;
 let lastFocused = null;
 let open = false;
+
+/**
+ * Hermanos del <body> que se vuelven inertes mientras el panel está abierto.
+ *
+ * El toast queda FUERA: `inert` lo sacaría del árbol de accesibilidad y
+ * "Progreso borrado" —el único acuse de una acción destructiva que se dispara
+ * desde dentro de este panel— no se anunciaría nunca.
+ */
+function backgroundNodes() {
+  return [...document.body.children].filter((n) => n !== el && n.id !== 'toast');
+}
+
+/**
+ * Guarda el `inert` previo de cada nodo para poder devolverlo tal cual.
+ * Sin esto, cerrar Ajustes dejaba `#menu` con `inert = false` estando cerrado,
+ * o sea: volvía a ser tabulable el menú invisible.
+ */
+const previousInert = new Map();
+
+function setBackgroundInert(on) {
+  if (on) {
+    previousInert.clear();
+    for (const n of backgroundNodes()) {
+      previousInert.set(n, n.inert);
+      n.inert = true;
+    }
+  } else {
+    for (const [n, was] of previousInert) n.inert = was;
+    previousInert.clear();
+  }
+}
 
 function build() {
   el = document.createElement('div');
@@ -29,6 +72,7 @@ function build() {
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-modal', 'true');
   el.setAttribute('aria-labelledby', 'sheetTitle');
+  el.inert = true;
 
   const s = store.getSettings();
   const prefs = store.getPrefs();
@@ -36,7 +80,7 @@ function build() {
   el.innerHTML = `
     <div class="sheet__panel">
       <div class="sheet__head">
-        <h2 class="title" id="sheetTitle" style="font-size:1.5rem">Ajustes</h2>
+        <h2 class="title sheet__title" id="sheetTitle">Ajustes</h2>
         <button class="sheet__close" type="button" aria-label="Cerrar ajustes">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
             <path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>
@@ -66,10 +110,10 @@ function build() {
       <div class="field">
         <div class="field__top">
           <label class="field__label" for="setVol">Volumen</label>
-          <span class="field__value" id="setVolVal">${Math.round(s.volume * 250)}%</span>
+          <span class="field__value" id="setVolVal">${volToPct(s.volume)}%</span>
         </div>
         <input class="range" type="range" id="setVol" min="0" max="100" step="2"
-               value="${Math.round(s.volume * 250)}">
+               value="${volToPct(s.volume)}">
       </div>
 
       <div class="field field--row">
@@ -93,7 +137,7 @@ function build() {
 
       <div class="field">
         <p class="field__hint" id="setStorage"></p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+        <div class="sheet__buttons">
           <button class="btn" type="button" id="setTest">Probar tono</button>
           <button class="btn" type="button" id="setReset">Borrar progreso</button>
         </div>
@@ -113,26 +157,35 @@ function wire() {
     ? 'Tu progreso se guarda en este dispositivo, en tu navegador.'
     : 'Este navegador bloquea el almacenamiento: el progreso no se conservará al cerrar.';
 
-  $('setWpm').addEventListener('input', (e) => {
-    const wpm = Number(e.target.value);
-    $('setWpmVal').textContent = `${wpm} PPM`;
-    keyer.configure(store.setSettings({ wpm }));
-  });
+  /**
+   * `input` refresca la etiqueta y el efecto audible; `change` es el que
+   * persiste. Arrastrar un deslizador dispara `input` decenas de veces por
+   * segundo, y cada una hacía un `JSON.stringify` + `localStorage.setItem`
+   * síncronos en el hilo principal — justo el tipo de trabajo que este
+   * proyecto evita para no meter jitter en el agendado de audio.
+   * En un `<input type="range">` `change` siempre llega al soltar, así que no
+   * se pierde ningún ajuste.
+   */
+  const bindRange = (id, valueId, format, onLive, onCommit) => {
+    const input = $(id);
+    const label = $(valueId);
+    input.addEventListener('input', () => {
+      const v = Number(input.value);
+      label.textContent = format(v);
+      onLive?.(v);
+    });
+    input.addEventListener('change', () => onCommit(Number(input.value)));
+  };
 
-  $('setFreq').addEventListener('input', (e) => {
-    const freq = Number(e.target.value);
-    $('setFreqVal').textContent = `${freq} Hz`;
-    keyer.configure(store.setSettings({ freq }));
-  });
+  bindRange('setWpm', 'setWpmVal', (v) => `${v} PPM`, null,
+    (wpm) => keyer.configure(store.setSettings({ wpm })));
 
-  $('setVol').addEventListener('input', (e) => {
-    const pct = Number(e.target.value);
-    $('setVolVal').textContent = `${pct}%`;
-    // El rango útil llega hasta 0.4: por encima satura sin sonar más alto.
-    const volume = (pct / 100) * LIMITS.volume.max;
-    store.setSettings({ volume });
-    audio.setVolume(volume);
-  });
+  bindRange('setFreq', 'setFreqVal', (v) => `${v} Hz`, null,
+    (freq) => keyer.configure(store.setSettings({ freq })));
+
+  bindRange('setVol', 'setVolVal', (v) => `${v}%`,
+    (pct) => audio.setVolume(pctToVol(pct)),
+    (pct) => store.setSettings({ volume: pctToVol(pct) }));
 
   $('setFarns').addEventListener('change', (e) => {
     keyer.configure(store.setSettings({ farnsworth: e.target.checked }));
@@ -153,7 +206,7 @@ function wire() {
     const s = store.getSettings();
     $('setWpm').value = s.wpm; $('setWpmVal').textContent = `${s.wpm} PPM`;
     $('setFreq').value = s.freq; $('setFreqVal').textContent = `${s.freq} Hz`;
-    const pct = Math.round(s.volume * 250);
+    const pct = volToPct(s.volume);
     $('setVol').value = pct; $('setVolVal').textContent = `${pct}%`;
     $('setFarns').checked = s.farnsworth;
     $('setHaptics').checked = store.getPrefs().haptics;
@@ -177,10 +230,19 @@ function wire() {
   });
 }
 
-export function openSheet() {
+/**
+ * Abre el panel.
+ * @param {{returnTo?: HTMLElement}} [opts] a dónde devolver el foco al cerrar.
+ *   Hace falta explícito porque quien abre suele cerrar antes su propio menú,
+ *   y `document.activeElement` acabaría siendo un control ya invisible.
+ */
+export function openSheet({ returnTo } = {}) {
   if (!el) build();
-  lastFocused = document.activeElement;
+  const active = document.activeElement;
+  lastFocused = returnTo ?? (active instanceof HTMLElement ? active : null);
   el.dataset.open = 'true';
+  el.inert = false;
+  setBackgroundInert(true);
   open = true;
   panel.querySelector(FOCUSABLE)?.focus();
 }
@@ -189,7 +251,11 @@ export function close() {
   if (!el || !open) return;
   el.dataset.open = 'false';
   open = false;
-  if (lastFocused instanceof HTMLElement) lastFocused.focus();
+  // Orden: primero se devuelve el fondo, si no el foco no puede aterrizar ahí.
+  setBackgroundInert(false);
+  el.inert = true;
+  if (lastFocused instanceof HTMLElement && lastFocused.isConnected) lastFocused.focus();
+  lastFocused = null;
 }
 
 export const isOpen = () => open;

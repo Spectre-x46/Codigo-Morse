@@ -47,12 +47,26 @@ const menuBtn = document.getElementById('menuBtn');
 const menu = document.getElementById('menu');
 const FOCUSABLE = 'a[href],button:not([disabled])';
 
+/**
+ * Abre o cierra el menú.
+ *
+ * `inert` es lo que de verdad lo saca del orden de tabulación y del árbol de
+ * accesibilidad; `opacity: 0` no hacía ni una cosa ni la otra, así que con el
+ * menú cerrado el tabulador caía dentro de cuatro enlaces invisibles y —peor—
+ * la trampa de foco de más abajo lo dejaba dando vueltas ahí para siempre.
+ * El CSS añade `visibility: hidden` como respaldo para navegadores sin `inert`.
+ */
 function setMenu(open) {
   menu.dataset.open = String(open);
+  menu.inert = !open;
   menuBtn.setAttribute('aria-expanded', String(open));
   if (open) menu.querySelector(FOCUSABLE)?.focus();
 }
 const menuIsOpen = () => menu.dataset.open === 'true';
+
+/* El atributo del HTML deja el menú inerte desde el primer frame; a partir de
+   aquí manda la propiedad. */
+menu.inert = true;
 
 menuBtn.addEventListener('click', () => {
   const next = !menuIsOpen();
@@ -67,10 +81,13 @@ menu.addEventListener('click', (e) => {
 
 document.getElementById('menuSettings').addEventListener('click', () => {
   setMenu(false);
-  openSheet();
+  // El foco debe volver al botón Menu, no al elemento del menú ya cerrado:
+  // devolverlo a `menuSettings` lo dejaba sobre un control invisible.
+  openSheet({ returnTo: menuBtn });
 });
 
 menu.addEventListener('keydown', (e) => {
+  if (!menuIsOpen()) return;   // cerrado no atrapa nada
   if (e.key !== 'Tab') return;
   const items = [...menu.querySelectorAll(FOCUSABLE)];
   const first = items[0];

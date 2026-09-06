@@ -16,7 +16,8 @@
  */
 
 import * as audio from './audio.js';
-import { sampleKeyer } from './keyer.js';
+import { sampleKeyer, isKeying } from './keyer.js';
+import { onPulse, pulse } from './pulse.js';
 import * as player from './player.js';
 
 /**
@@ -46,7 +47,6 @@ let prevPlaybackId = null;
 
 const frameSubs = new Set();
 const eventSubs = new Set();
-const wakeSubs = new Set();
 
 /** Suscripción por frame: recibe el SignalState en cada muestreo. */
 export function subscribe(fn) {
@@ -69,13 +69,8 @@ function emit(type, detail) {
 }
 
 /** Avisa de que hay algo que animar: rearma el bucle de frames. */
-export function wake() {
-  for (const fn of wakeSubs) { try { fn(); } catch { /* aislado */ } }
-}
-export function onWake(fn) {
-  wakeSubs.add(fn);
-  return () => wakeSubs.delete(fn);
-}
+export const wake = pulse;
+export const onWake = onPulse;
 
 export const subscriberCount = () => frameSubs.size + eventSubs.size;
 
@@ -166,7 +161,11 @@ export function reset() {
   setState(false, null, null, 0, -1, -1, null);
 }
 
-/** ¿Hay algo que merezca seguir animando? */
+/**
+ * ¿Hay algo que merezca seguir animando?
+ * Incluye la llave pulsada: si no, el bucle podía dormirse en mitad de una
+ * raya larga y el contacto se quedaba encendido.
+ */
 export function isActive() {
-  return state.on || player.current() !== null;
+  return state.on || isKeying() || player.current() !== null;
 }

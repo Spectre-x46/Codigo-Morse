@@ -1,7 +1,12 @@
 /**
- * Home. El hero resuelve casi toda la experiencia inicial; lo que viene
- * después es deliberadamente poco: cómo funciona, una demo que se puede tocar,
- * y la puerta a la historia.
+ * Home.
+ *
+ * Ritmo: hero blanco → bloque cinemático oscuro → demo interactiva → cierre
+ * editorial → footer. El hero está aprobado y no se toca; lo que se añade es
+ * el recorrido posterior.
+ *
+ * El dinamismo nace de eventos —scroll, audio, respuesta— no de adornos que se
+ * mueven solos.
  */
 
 import * as player from '../core/player.js';
@@ -9,9 +14,18 @@ import * as store from '../core/store.js';
 import * as audio from '../core/audio.js';
 import * as frameLoop from '../ui/frame-loop.js';
 import { MorseGlyph } from '../ui/morse-glyph.js';
+import { Waveform } from '../ui/waveform.js';
+import { SignalLine } from '../ui/signal-line.js';
+import { observeReveals, trackProgress } from '../ui/reveal.js';
 import { MORSE, fmt } from '../data/morse.js';
 
 const DEMO_POOL = ['E', 'T', 'A', 'N', 'I', 'M'];
+
+const STEPS = [
+  { n: '01', t: 'Escucha', d: 'Suena una señal.' },
+  { n: '02', t: 'Reconoce', d: 'Identifica su ritmo.' },
+  { n: '03', t: 'Responde', d: 'Y sigue avanzando.' }
+];
 
 export function mount(root, scope) {
   root.innerHTML = `
@@ -20,7 +34,7 @@ export function mount(root, scope) {
             aria-label="Pulsar la llave para oír un punto">
       <img src="assets/telegraph.webp"
            srcset="assets/telegraph-560.webp 560w, assets/telegraph.webp 866w"
-           sizes="(max-width: 767px) 118vw, 60vw"
+           sizes="(max-width: 767px) 118vw, 58vw"
            width="866" height="634" alt="" fetchpriority="high" decoding="async">
       <span class="hero__contact" aria-hidden="true"></span>
     </button>
@@ -60,49 +74,106 @@ export function mount(root, scope) {
     </div>
   </section>
 
-  <section class="shell section" aria-labelledby="howTitle">
-    <div class="stack">
-      <div class="stack--sm" style="display:flex;flex-direction:column;gap:12px">
-        <p class="section-label">Cómo funciona</p>
-        <h2 class="title" id="howTitle">Tres pasos, sin configurar nada.</h2>
+  <div class="sigline-band" id="bandTop" aria-hidden="true"></div>
+
+  <!-- ============================================ bloque cinemático oscuro -->
+  <section class="cine" id="cine" data-nav="dark" aria-labelledby="cineTitle">
+    <div class="cine__sticky">
+      <picture class="cine__media">
+        <source media="(max-width: 767px)"
+                srcset="assets/images/telegraph-macro-mobile-900.webp">
+        <source media="(min-width: 768px)"
+                srcset="assets/images/telegraph-macro-desktop-1280.webp 1280w,
+                        assets/images/telegraph-macro-desktop-1920.webp 1920w"
+                sizes="100vw">
+        <img src="assets/images/telegraph-macro-desktop-1280.webp"
+             width="1920" height="1072" loading="lazy" decoding="async"
+             alt="Detalle macro del mecanismo de contacto de una llave telegráfica.">
+      </picture>
+
+      <div class="cine__shade" aria-hidden="true"></div>
+
+      <div class="cine__content">
+        <h2 class="sr-only" id="cineTitle">Cómo funciona</h2>
+        <ol class="cine__steps">
+          ${STEPS.map((s, i) => `
+            <li class="cine__step" data-step="${i}" ${i === 0 ? 'data-on="true"' : ''}>
+              <span class="cine__n">${s.n}</span>
+              <span class="cine__t">${s.t}</span>
+              <span class="cine__d">${s.d}</span>
+            </li>`).join('')}
+        </ol>
+        <div class="cine__rule" aria-hidden="true"><i id="cineBar"></i></div>
       </div>
-      <ol class="stats" style="counter-reset:step">
-        <li class="stat"><div class="stat__n">01</div><div class="stat__l">Suena una letra en Morse.</div></li>
-        <li class="stat"><div class="stat__n">02</div><div class="stat__l">Eliges cuál era.</div></li>
-        <li class="stat"><div class="stat__n">03</div><div class="stat__l">Sabes al instante si acertaste y sigue la siguiente.</div></li>
-      </ol>
     </div>
   </section>
 
-  <section class="shell section" aria-labelledby="demoTitle">
-    <div class="card stack" style="align-items:center;text-align:center">
-      <p class="section-label">Pruébalo aquí</p>
-      <h2 class="title" id="demoTitle" style="font-size:clamp(1.5rem,4vw,2rem)">¿Qué letra fue?</h2>
+  <!-- ================================================ demo, sin tarjeta -->
+  <section class="demo" aria-labelledby="demoTitle" data-reveal>
+    <p class="section-label">Pruébalo aquí</p>
+    <h2 class="title demo__q" id="demoTitle">¿Puedes reconocerla?</h2>
+
+    <div class="demo__stage" id="demoStage" data-state="idle">
       <div class="wave" id="demoWave"></div>
-      <div class="glyph glyph--lg" id="demoGlyph"></div>
-      <p class="feedback" id="demoFb">Pulsa reproducir y elige la letra que oigas.</p>
-      <div class="options" id="demoOptions" style="width:min(340px,100%)"></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn--primary" type="button" id="demoPlay">Reproducir señal</button>
-        <a class="btn btn--ghost" href="#/aprender">Sesión completa</a>
-      </div>
-      <p class="field__hint">Es una demostración: no guarda progreso.</p>
+      <div class="glyph glyph--xl" id="demoGlyph"></div>
     </div>
+
+    <p class="feedback" id="demoFb" role="status" aria-live="polite">
+      Pulsa reproducir y elige la letra que oigas.
+    </p>
+
+    <div class="options options--wide" id="demoOptions"></div>
+
+    <div class="demo__actions">
+      <button class="btn btn--primary" type="button" id="demoPlay">Reproducir señal</button>
+      <a class="btn btn--ghost" href="#/aprender">Sesión completa</a>
+    </div>
+    <p class="field__hint">Es una demostración: no guarda progreso.</p>
+  </section>
+
+  <div class="sigline-band" id="bandBottom" aria-hidden="true"></div>
+
+  <!-- ================================================== cierre editorial -->
+  <section class="story" aria-labelledby="storyTitle" data-reveal>
+    <div class="story__text">
+      <p class="section-label">El origen</p>
+      <h2 class="title" id="storyTitle">Una tecnología de casi dos siglos.<br>
+        <span class="story__soft">Una forma simple de aprenderla hoy.</span></h2>
+      <p class="lede">
+        El código Morse nació para cruzar continentes por un cable. Sigue siendo
+        la forma más eficiente de transmitir con muy poca energía y mucho ruido
+        de fondo — y se aprende con el oído, no con una tabla.
+      </p>
+      <a class="btn btn--ghost btn--lg" href="#/acerca">
+        Conoce la historia <span class="btn__arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
+
+    <picture class="story__media">
+      <source media="(max-width: 767px)"
+              srcset="assets/images/telegraph-story-mobile-900.webp">
+      <source media="(min-width: 768px)"
+              srcset="assets/images/telegraph-story-desktop-900.webp 900w,
+                      assets/images/telegraph-story-desktop-1400.webp 1400w"
+              sizes="(min-width: 1200px) 55vw, 50vw">
+      <img src="assets/images/telegraph-story-desktop-900.webp"
+           width="1400" height="781" loading="lazy" decoding="async"
+           alt="Llave telegráfica completa sobre una superficie clara.">
+    </picture>
   </section>
   `;
 
   /* --------------------------------------------------------- hero: la llave */
 
   const heroKey = root.querySelector('#heroKey');
-  let heroTracked = false;
+  let heroOn = null;
 
   scope.add(frameLoop.subscribe((state) => {
-    const on = state.on;
-    if (on !== heroTracked) {
-      heroKey.dataset.on = String(on);
-      heroTracked = on;
+    if (state.on !== heroOn) {
+      heroKey.dataset.on = String(state.on);
+      heroOn = state.on;
     }
-    if (on) heroKey.dataset.kind = state.kind ?? 'dit';
+    if (state.on) heroKey.dataset.kind = state.kind ?? 'dit';
   }));
 
   scope.on(heroKey, 'click', async () => {
@@ -110,23 +181,44 @@ export function mount(root, scope) {
     player.playText('E', store.getSettings());   // un punto real, con el motor real
   });
 
+  /* ------------------------------------------------ líneas de señal (motivo) */
+
+  scope.add(SignalLine(root.querySelector('#bandTop'), 'MORSE'));
+  scope.add(SignalLine(root.querySelector('#bandBottom'), 'SOS'));
+
+  /* ------------------------------------------------------ bloque cinemático */
+
+  const steps = [...root.querySelectorAll('.cine__step')];
+  const bar = root.querySelector('#cineBar');
+  let activeStep = 0;
+
+  scope.add(trackProgress(root.querySelector('#cine'), (p) => {
+    // Tres tramos iguales. El paso activo cambia por umbral, no por frame,
+    // así que sólo se escribe en el DOM cuando de verdad cambia.
+    const next = Math.min(Math.floor(p * STEPS.length), STEPS.length - 1);
+    if (next !== activeStep) {
+      steps[activeStep]?.removeAttribute('data-on');
+      steps[next]?.setAttribute('data-on', 'true');
+      activeStep = next;
+    }
+    bar.style.transform = `scaleX(${(0.06 + p * 0.94).toFixed(4)})`;
+  }));
+
   /* ------------------------------------------------------------- micro-demo */
 
   const optionsBox = root.querySelector('#demoOptions');
   const feedback = root.querySelector('#demoFb');
   const playBtn = root.querySelector('#demoPlay');
-  const glyph = scope.add(MorseGlyph(root.querySelector('#demoGlyph'), { size: 'lg' }));
-
-  // La waveform del hero y la de la demo comparten el mismo estado de señal.
-  import('../ui/waveform.js').then(({ Waveform }) => {
-    if (scope.disposed) return;
-    scope.add(Waveform(root.querySelector('#demoWave'), { bars: 22 }));
-  });
+  const stage = root.querySelector('#demoStage');
+  const glyph = scope.add(MorseGlyph(root.querySelector('#demoGlyph'), { size: 'xl' }));
+  scope.add(Waveform(root.querySelector('#demoWave'), { bars: 24 }));
 
   let answer = null;
-  let locked = false;
+  let locked = true;
 
-  function renderOptions(correct) {
+  function setStage(s) { stage.dataset.state = s; }
+
+  function renderOptions(correct, disabled) {
     const others = DEMO_POOL.filter((c) => c !== correct);
     const picks = [correct, others[Math.floor(Math.random() * others.length)]];
     picks.sort(() => Math.random() - 0.5);
@@ -138,6 +230,7 @@ export function mount(root, scope) {
       b.type = 'button';
       b.textContent = ch;
       b.dataset.state = '';
+      b.disabled = disabled;
       b.addEventListener('click', () => respond(b, ch));
       optionsBox.appendChild(b);
     }
@@ -152,34 +245,47 @@ export function mount(root, scope) {
       if (b.textContent === answer) b.dataset.state = 'ok';
       else if (b === btn) b.dataset.state = 'no';
     }
-    feedback.textContent = correct
-      ? `Correcto. ${answer} es ${fmt(MORSE[answer])}`
-      : `Era ${answer} — ${fmt(MORSE[answer])}`;
+    feedback.textContent = correct ? '✓ Correcto' : `Era ${answer}`;
     feedback.dataset.tone = correct ? 'ok' : 'no';
+    glyph.setCode(MORSE[answer]);
+    setStage('feedback');
     playBtn.textContent = 'Otra señal';
   }
 
   async function play() {
     await audio.resume();
-    locked = false;
+    answer = DEMO_POOL[Math.floor(Math.random() * DEMO_POOL.length)];
+
+    // Durante la reproducción las opciones están visibles pero quietas: no se
+    // puede responder a algo que todavía está sonando.
+    locked = true;
+    renderOptions(answer, true);
     feedback.textContent = 'Escuchando…';
     feedback.dataset.tone = '';
-    answer = DEMO_POOL[Math.floor(Math.random() * DEMO_POOL.length)];
-    renderOptions(answer);
+    setStage('playing');
+
     const pb = player.playText(answer, store.getSettings());
     if (pb.state === 'blocked') {
       feedback.textContent = 'Toca de nuevo para activar el audio.';
+      setStage('idle');
       return;
     }
     glyph.track(pb, 0);
     playBtn.textContent = 'Repetir';
+
+    pb.finished.then((reason) => {
+      if (scope.disposed || reason !== 'ended') return;
+      locked = false;
+      setStage('awaiting');
+      feedback.textContent = '¿Qué letra fue?';
+      for (const b of optionsBox.children) b.disabled = false;
+    });
   }
 
   scope.on(playBtn, 'click', play);
+  renderOptions('E', true);
 
-  /* La llave NO tiene ciclo de reposo a propósito.
-     El desenfoque de movimiento ya está en la propia fotografía, así que un
-     latido periódico no añadía información y sí distraía. Lo que sí responde
-     es el gesto real: hover y, al pulsar, un punto de verdad con el motor de
-     audio. */
+  /* ------------------------------------------------------------- revelados */
+
+  scope.add(observeReveals(root));
 }

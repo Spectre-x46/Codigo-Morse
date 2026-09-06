@@ -16,6 +16,7 @@
 import * as audio from './audio.js';
 import { resolveSettings, unitSeconds } from './timing.js';
 import { REVERSE } from '../data/morse.js';
+import { pulse } from './pulse.js';
 
 /** Un símbolo pasa a raya al superar 2 unidades pulsado. */
 const DASH_THRESHOLD_UNITS = 2;
@@ -63,6 +64,7 @@ export function press(partial) {
   clearTimeout(wordTimer);
   audio.keyDown(settings.freq);
   downAt = audio.audibleNow();
+  pulse();   // el bucle de frames puede estar dormido: hay que despertarlo
 }
 
 /** Suelta la llave: cierra el símbolo y programa el cierre de letra. */

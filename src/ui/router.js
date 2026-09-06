@@ -13,6 +13,7 @@ import { createScope } from './scope.js';
 import * as keyer from '../core/keyer.js';
 import * as player from '../core/player.js';
 import * as signal from '../core/signal.js';
+import { prefersReduced } from './motion.js';
 
 /** @type {Map<string, (root:HTMLElement, scope:ReturnType<createScope>, params:object)=>void>} */
 const routes = new Map();
@@ -46,8 +47,13 @@ export function navigate(path, { replace = false } = {}) {
   else location.hash = target;
 }
 
-function render() {
-  const path = currentRoute();
+/* Token de navegación: si el usuario pulsa atrás mientras se está haciendo la
+   transición de salida, la navegación vieja se descarta en vez de montar una
+   vista que ya no corresponde. */
+let navToken = 0;
+const OUT_MS = 120;
+
+function swap(path) {
   const mount = routes.get(path) ?? routes.get(fallback);
   if (!mount) return;
 
@@ -71,6 +77,25 @@ function render() {
   // lector de pantalla se queda donde estaba y la ruta nueva pasa inadvertida.
   outlet.focus({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'instant' });
+
+  outlet.dataset.state = 'in';
+}
+
+function render() {
+  const path = currentRoute();
+  const token = ++navToken;
+
+  if (prefersReduced() || !outlet.hasChildNodes()) {
+    swap(path);
+    return;
+  }
+
+  // Salida corta; la entrada la hace el CSS al poner data-state="in".
+  outlet.dataset.state = 'out';
+  setTimeout(() => {
+    if (token !== navToken) return;   // llegó otra navegación: esta ya no vale
+    swap(path);
+  }, OUT_MS);
 }
 
 export function start(outletEl, { fallbackPath = '/' } = {}) {

@@ -110,4 +110,50 @@ router.onRouteChange((path) => {
   document.title = titles[path] ?? titles['/'];
 });
 
+/* ------------------------------------------------- navbar sobre secciones oscuras */
+
+const navEl = document.querySelector('.nav');
+let navTicking = false;
+let navDark = false;
+
+/**
+ * Invierte la barra mientras una sección oscura pasa por debajo.
+ *
+ * Se mide con getBoundingClientRect en un listener de scroll pasivo, no con
+ * IntersectionObserver: sobre un elemento de tres pantallas de alto los
+ * umbrales de intersección no se cruzan cuando hace falta, y lo que importa
+ * aquí es una franja de 40 px, no la visibilidad del bloque.
+ */
+function measureNav() {
+  navTicking = false;
+  const probe = navEl.offsetHeight * 0.6;
+  let dark = false;
+  // Se consulta en cada medición porque las vistas se cargan con import()
+  // dinámico: al cambiar de ruta el DOM todavía no existe, y una lista
+  // cacheada en ese momento quedaría vacía para siempre.
+  for (const el of document.querySelectorAll('[data-nav="dark"]')) {
+    const r = el.getBoundingClientRect();
+    if (r.top <= probe && r.bottom > probe) { dark = true; break; }
+  }
+  if (dark === navDark) return;
+  navDark = dark;
+  if (dark) navEl.dataset.theme = 'dark';
+  else navEl.removeAttribute('data-theme');
+}
+
+function onNavScroll() {
+  if (navTicking) return;
+  navTicking = true;
+  requestAnimationFrame(measureNav);
+}
+
+addEventListener('scroll', onNavScroll, { passive: true });
+addEventListener('resize', onNavScroll, { passive: true });
+
+router.onRouteChange(() => {
+  navDark = false;
+  navEl.removeAttribute('data-theme');
+  requestAnimationFrame(measureNav);
+});
+
 router.start(document.getElementById('main'), { fallbackPath: '/' });

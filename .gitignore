@@ -1,9 +1,9 @@
 # Backups locales del propio proyecto
 *.zip
 
-# Capturas y material de trabajo sin optimizar
-/telegraph-*.jpeg
-/telegraph-*.jpg
+# Fotografías originales sin comprimir (~8 MB).
+# En assets/images/ están los derivados WebP que usa el sitio, 50x más ligeros.
+/reference/source/
 
 # Sistema
 .DS_Store

@@ -13,6 +13,7 @@
 
 import * as audio from './audio.js';
 import { buildTimeline, resolveSettings } from './timing.js';
+import { pulse } from './pulse.js';
 
 /** Margen antes del primer elemento: da aire al scheduler. */
 const LEAD = 0.08;
@@ -134,6 +135,7 @@ export function playText(text, partialSettings) {
   currentPlayback = pb;
   pb.state = 'playing';
   emit('start', { playback: pb });
+  pulse();   // arranca el bucle visual aunque estuviera dormido
   return pb;
 }
 

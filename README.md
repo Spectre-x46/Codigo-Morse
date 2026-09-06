@@ -20,7 +20,7 @@ actual tiene **dos caminos visibles** y ninguna decisión previa.
 | | |
 |---|---|
 | **Aprender** | Pulsas *Empezar* y ya estás en una sesión. Diez preguntas, feedback inmediato, resumen. Cero configuración. |
-| **Modo libre** | La llave telegráfica, un traductor y el abecedario, para quien quiera trastear. |
+| **Modo libre** | Una mesa de telegrafía: la llave, un traductor y el abecedario. |
 
 Los ajustes existen, pero detrás de un panel. Un principiante no debería tener que
 saber qué es el espaciado Farnsworth para empezar.
@@ -99,8 +99,9 @@ styles.css          tokens y sistema visual
 src/
   data/             morse · levels · tips          tablas, sin comportamiento
   core/             timing · audio · player        ← CERO DOM
-                    keyer · signal · store · srs
+                    keyer · signal · pulse · store · srs
   ui/               router · frame-loop · scope    infraestructura
+                    reveal · motion · signal-line
                     morse-glyph · waveform · sheet · toast
   views/            home · aprender · libre · acerca
   app.js            cableado
@@ -129,6 +130,8 @@ lo destruye antes de montar la siguiente. Navegar cien veces no deja nada colgan
 - **El movimiento reducido respeta la información.** Con `prefers-reduced-motion` se
   apagan las entradas y los adornos, pero el símbolo iluminado se queda: dice qué
   está sonando, no es decoración.
+- **Se animan eventos, no pantallas.** Nada flota por decorar: la interfaz se mueve
+  cuando empieza una señal, cuando se cierra el contacto, cuando llega una respuesta.
 
 ## Accesibilidad
 
@@ -165,5 +168,5 @@ cada interacción porque el sistema lo suspende al volver de segundo plano.
 
 ---
 
-Hecho por **CE3WMJ**. La historia de por qué existe está en la propia app, en
+La historia de por qué existe está en la propia app, en
 [Acerca de](https://codigo-morse-online.netlify.app/#/acerca).

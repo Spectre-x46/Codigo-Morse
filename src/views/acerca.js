@@ -34,18 +34,27 @@ export function mount(root, scope) {
 
       <div class="stack--sm" style="display:flex;flex-direction:column;gap:18px">
         <p style="font-size:clamp(1.05rem,3vw,1.28rem);line-height:1.6;letter-spacing:-.012em">
-          Construí esto para recordar el código que aprendí de niño. Mi padre me
-          lo enseñó, y pensé: ¿por qué no enseñárselo a otros?
+          Me llamo Felipe y construí Código Morse Online para recordar el código
+          que aprendí de niño.
         </p>
-        <p class="lede" style="max-width:56ch">
-          Él armó su propio pulsador para enseñarme. Esta es mi forma de volver
-          a esa mesa — y de que alguien más pueda sentarse a ella sin necesitar
-          un equipo, una licencia ni un manual.
+        <p class="lede" style="max-width:58ch">
+          Me lo enseñó mi padre, <strong style="color:var(--text);font-weight:500">CE3WMJ</strong>,
+          radioaficionado. Armó su propio pulsador para enseñarme: una llave hecha
+          a mano sobre la mesa de la casa. Aprendí escuchando, no memorizando una
+          tabla.
+        </p>
+        <p class="lede" style="max-width:58ch">
+          Años después quise volver a esa mesa, y pensé que alguien más debería
+          poder sentarse a ella — sin necesitar un equipo, una licencia ni un
+          manual. Sólo un navegador y unos minutos.
         </p>
       </div>
 
       <div class="card">
-        <p class="section-label" style="margin-bottom:12px">La firma</p>
+        <p class="section-label" style="margin-bottom:6px">Su indicativo</p>
+        <p class="field__hint" style="margin-bottom:14px">
+          El distintivo de radioaficionado de mi padre, transmitido en Morse.
+        </p>
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
           <div class="glyph glyph--lg" id="sigGlyph"></div>
           <button class="btn" type="button" id="sigPlay">Escuchar CE3WMJ</button>

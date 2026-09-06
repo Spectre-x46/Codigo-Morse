@@ -1,0 +1,13 @@
+# Backups locales del propio proyecto
+*.zip
+
+# Capturas y material de trabajo sin optimizar
+/telegraph-*.jpeg
+/telegraph-*.jpg
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Herramientas
+.playwright-mcp/

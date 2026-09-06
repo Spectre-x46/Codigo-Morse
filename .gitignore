@@ -2,6 +2,9 @@
 *.zip
 
 # Fotografías originales sin comprimir (~8 MB).
+# OJO: el despliegue se hace subiendo la carpeta a Netlify, así que este archivo
+# NO protege de nada en producción — todo lo que esté en el directorio se
+# publica. Los originales viven fuera: ~/Projectos/Telegrafo-originales/source/
 # En assets/images/ están los derivados WebP que usa el sitio, 50x más ligeros.
 /reference/source/
 

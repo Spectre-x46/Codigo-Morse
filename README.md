@@ -236,13 +236,20 @@ límite.
 
 ## Desplegar
 
-Estático puro. En Netlify: publish directory `.`, sin comando de build. Las rutas van
-en el hash, así que no hace falta ninguna regla de reescritura.
+Estático puro: no hay nada que construir. Se despliega subiendo el directorio del
+proyecto a Netlify —publish directory `.`, sin comando de build— y las rutas van en
+el hash, así que no hace falta ninguna regla de reescritura.
 
-`reference/` guarda el material visual de referencia. Los originales sin comprimir
-(~8 MB) están en `.gitignore` y no se despliegan; sí se publica
-`reference/tech-forward-morse.png` (1,2 MB), que es la captura de este README y no la
-carga ninguna página del sitio.
+**Consecuencia importante de desplegar por carpeta: `.gitignore` no filtra nada.**
+Todo archivo que esté en el directorio queda accesible públicamente. Por eso las
+fotografías originales sin comprimir (~8 MB) viven *fuera* del proyecto y no en
+`reference/`; ahí sólo queda `tech-forward-morse.png`, que es la captura de este
+README y ninguna página del sitio carga. Netlify sí omite lo que empieza por punto
+(`.git/`, `.gitignore`). Antes de subir conviene mirar qué hay dentro:
+
+```bash
+du -sh --exclude=.git *
+```
 
 ## Compatibilidad
 
